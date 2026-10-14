@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
-import { fmtDateTime, fullName } from '../lib/format'
+import { fmtDateTime, fullName } from '../../lib/format'
 
 const STATUS = {
   scheduled: { text: 'Prévu', cls: 'info' },

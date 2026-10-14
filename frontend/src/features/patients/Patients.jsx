@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
-import '../styles/clinic.css'
+import '../../styles/clinic.css'
 
 const emptyForm = { first_name: '', last_name: '', birth_date: '', sex: '' }
 

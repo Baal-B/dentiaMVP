@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Scan, CalendarDays,
   MessageSquare, FileText, Bell, LogOut,
 } from 'lucide-react'
-import { useAuth } from '../auth/AuthProvider'
+import { useAuth } from '../features/auth/AuthProvider'
 import '../styles/clinic.css'
 
 const nav = [

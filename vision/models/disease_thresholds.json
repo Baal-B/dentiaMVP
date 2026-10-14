@@ -1,0 +1,9 @@
+{
+  "use_tta": false,
+  "thresholds": {
+    "Impacted": 0.25,
+    "Caries": 0.1,
+    "Periapical Lesion": 0.15,
+    "Deep Caries": 0.15
+  }
+}

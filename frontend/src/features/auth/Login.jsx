@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { useAuth } from '../auth/AuthProvider'
-import '../styles/clinic.css'
+import { useAuth } from './AuthProvider'
+import '../../styles/clinic.css'
 
 export default function Login() {
   const { session, signIn } = useAuth()

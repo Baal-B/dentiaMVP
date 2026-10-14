@@ -1,11 +1,13 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import ProtectedRoute from './auth/ProtectedRoute'
+import ProtectedRoute from './features/auth/ProtectedRoute'
 import AppLayout from './components/AppLayout'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Patients from './pages/Patients'
-import Analysis from './pages/Analysis'
-import Appointments from './pages/Appointments'
+import Login from './features/auth/Login'
+import Dashboard from './features/dashboard/Dashboard'
+import Patients from './features/patients/Patients'
+import Analysis from './features/analysis/Analysis'
+import Appointments from './features/appointments/Appointments'
+import Review from './features/analysis/Review'
+
 
 export default function App() {
   return (
@@ -16,6 +18,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="patients" element={<Patients />} />
           <Route path="analysis" element={<Analysis />} />
+          <Route path="analysis/:id" element={<Review />} />
           <Route path="appointments" element={<Appointments />} />
         </Route>
       </Route>
