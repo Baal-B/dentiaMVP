@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { buildReport } from '../../lib/report'
@@ -15,8 +15,8 @@ const KINDS = { panoramic: 'Panoramique', periapical: 'Rétro-alvéolaire', bite
 export default function Review() {
   const { id } = useParams()
   const { user } = useAuth()
-const navigate = useNavigate()
-const [report, setReport] = useState(null)
+  const navigate = useNavigate()
+  const [report, setReport] = useState(null)
   const [rg, setRg] = useState(null)
   const [patient, setPatient] = useState(null)
   const [analysis, setAnalysis] = useState(null)
@@ -53,12 +53,12 @@ const [report, setReport] = useState(null)
     const an = a.data?.[0] ?? null
     setAnalysis(an)
     if (an) {
-  const { data: rep } = await supabase
-    .from('reports').select('id, status').eq('analysis_id', an.id).limit(1)
-  setReport(rep?.[0] ?? null)
-} else {
-  setReport(null)
-}
+      const { data: rep } = await supabase
+        .from('reports').select('id, status').eq('analysis_id', an.id).limit(1)
+      setReport(rep?.[0] ?? null)
+    } else {
+      setReport(null)
+    }
     setDecisions(
       an?.validated_findings
         ? Object.fromEntries(an.validated_findings.map((f) => [f.id, f.decision]))
@@ -99,25 +99,27 @@ const [report, setReport] = useState(null)
   }
 
   async function createReport() {
-  setBusy('report')
-  setError('')
-  const { content, citations } = buildReport({ radiograph: rg, analysis, queries })
-  const { data, error } = await supabase
-    .from('reports')
-    .insert({
-      doctor_id: user.id,
-      patient_id: rg.patient_id,
-      analysis_id: analysis.id,
-      title: `Rapport radiologique — ${fullName(patient)}`,
-      content,
-      citations,
-    })
-    .select('id')
-    .single()
-  setBusy('')
-  if (error) return setError(error.message)
-  navigate(`/reports/${data.id}`)
-}
+    // Guard against duplicate creation (double-click / multiple triggers)
+    if (report) return
+    setBusy('report')
+    setError('')
+    const { content, citations } = buildReport({ radiograph: rg, analysis, queries })
+    const { data, error } = await supabase
+      .from('reports')
+      .insert({
+        doctor_id: user.id,
+        patient_id: rg.patient_id,
+        analysis_id: analysis.id,
+        title: `Rapport radiologique — ${fullName(patient)}`,
+        content,
+        citations,
+      })
+      .select('id')
+      .single()
+    setBusy('')
+    if (error) return setError(error.message)
+    navigate(`/reports/${data.id}`)
+  }
 
   async function save(status) {
     setBusy('save')
@@ -141,6 +143,16 @@ const [report, setReport] = useState(null)
 
   const decide = (fid, value) => setDecisions((d) => ({ ...d, [fid]: value }))
 
+  // Scroll the matching finding into view whenever the selection changes.
+  // `block: 'nearest'` only scrolls if the element isn't already fully visible,
+  // and does the minimum scroll needed — no manual rect math required.
+  useEffect(() => {
+    if (selectedId == null) return
+    const el = document.querySelector(`[data-finding-id="${selectedId}"]`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [selectedId])
+
   if (loading) return <div className="clinic-loading">Chargement…</div>
   if (!rg) return <div className="clinic-empty">Radiographie introuvable.</div>
 
@@ -155,9 +167,10 @@ const [report, setReport] = useState(null)
       <Link to="/analysis" className="clinic-back">
         <ArrowLeft size={18} /> Retour aux analyses
       </Link>
-<h1 className="clinic-page-title">
-  <Link to={`/patients/${rg.patient_id}`} className="clinic-link-name">{fullName(patient)}</Link>
-</h1>      <p className="clinic-page-sub">
+      <h1 className="clinic-page-title">
+        <Link to={`/patients/${rg.patient_id}`} className="clinic-link-name">{fullName(patient)}</Link>
+      </h1>
+      <p className="clinic-page-sub">
         {KINDS[rg.kind]} · {fmtDate(rg.taken_at ?? rg.created_at)}
       </p>
 
@@ -243,6 +256,7 @@ const [report, setReport] = useState(null)
                   return (
                     <li
                       key={f.id}
+                      data-finding-id={f.id}
                       className={'clinic-finding' + (f.id === selectedId ? ' selected' : '')}
                       onClick={() => setSelectedId(f.id)}
                     >
@@ -259,35 +273,7 @@ const [report, setReport] = useState(null)
                           Confiance faible : à examiner
                         </span>
                       )}
-                      {readOnly ? (
-  <>
-    <p
-      className={analysis.validation_status === 'validated' ? 'clinic-success' : 'clinic-error'}
-      style={{ margin: 0 }}
-    >
-      {analysis.validation_status === 'validated' ? 'Revue validée.' : 'Analyse rejetée.'}
-    </p>
-    {analysis.validation_status === 'validated' &&
-      (report ? (
-        <Link
-          to={`/reports/${report.id}`}
-          className="clinic-btn clinic-btn-primary clinic-btn-block"
-          style={{ marginTop: 12 }}
-        >
-          {report.status === 'signed' ? 'Voir le rapport signé' : 'Ouvrir le brouillon du rapport'}
-        </Link>
-      ) : (
-        <button
-          className="clinic-btn clinic-btn-primary clinic-btn-block"
-          style={{ marginTop: 12 }}
-          onClick={createReport}
-          disabled={busy === 'report'}
-        >
-          {busy === 'report' ? 'Création…' : 'Générer le rapport'}
-        </button>
-      ))}
-  </>
-) : (
+                      {!readOnly && (
                         <div className="clinic-decide">
                           <button
                             className={'clinic-btn clinic-btn-ghost' + (d === 'accepted' ? ' on-accept' : '')}
@@ -357,6 +343,28 @@ const [report, setReport] = useState(null)
         </section>
       )}
       <AssistantPanel queries={queries} />
+
+      {analysis?.validation_status === 'validated' && (
+        <section className="clinic-card clinic-report-cta">
+          <div className="clinic-card-body">
+            <div>
+              <strong>Revue terminée.</strong>
+              <div style={{ color: 'var(--clinic-muted)' }}>
+                Le rapport reprend les résultats acceptés, les symptômes et les sources ci-dessus.
+              </div>
+            </div>
+            {report ? (
+              <Link to={`/reports/${report.id}`} className="clinic-btn clinic-btn-primary">
+                {report.status === 'signed' ? 'Voir le rapport signé' : 'Ouvrir le brouillon du rapport'}
+              </Link>
+            ) : (
+              <button className="clinic-btn clinic-btn-primary" onClick={createReport} disabled={busy === 'report'}>
+                {busy === 'report' ? 'Création…' : 'Générer le rapport'}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
     </>
   )
 }

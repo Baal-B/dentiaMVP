@@ -1,9 +1,24 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { labelFr, pct } from '../../lib/findings'
 
 export default function FindingsViewer({ url, findings, decisions, selectedId, onSelect }) {
   const [size, setSize] = useState(null)
   const [zoom, setZoom] = useState(1)
+
+  const viewerRef = useRef(null)
+
+useEffect(() => {
+  const v = viewerRef.current
+  if (selectedId == null || !v) return
+  const b = v.querySelector(`[data-box-id="${selectedId}"]`)
+  if (!b) return
+  const vr = v.getBoundingClientRect()
+  const br = b.getBoundingClientRect()
+  if (br.left < vr.left || br.right > vr.right)
+    v.scrollBy({ left: br.left + br.width / 2 - (vr.left + vr.width / 2), behavior: 'smooth' })
+  if (br.top < vr.top || br.bottom > vr.bottom)
+    v.scrollBy({ top: br.top + br.height / 2 - (vr.top + vr.height / 2), behavior: 'smooth' })
+}, [selectedId, zoom])
 
   return (
     <div>
@@ -20,7 +35,7 @@ export default function FindingsViewer({ url, findings, decisions, selectedId, o
         ))}
       </div>
 
-      <div className="clinic-viewer">
+<div className="clinic-viewer" ref={viewerRef}>
         <div className="clinic-viewer-inner" style={{ width: `${zoom * 100}%` }}>
           <img
             src={url}
@@ -36,6 +51,7 @@ export default function FindingsViewer({ url, findings, decisions, selectedId, o
               return (
                 <button
                   key={f.id}
+                  data-box-id={f.id}
                   type="button"
                   className={cls}
                   title={`${labelFr(f.label)} — ${pct(f.confidence)}`}

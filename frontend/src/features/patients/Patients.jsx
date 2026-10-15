@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import '../../styles/clinic.css'
+import { Link } from 'react-router-dom'
+
 
 const emptyForm = { first_name: '', last_name: '', birth_date: '', sex: '' }
 
@@ -158,9 +160,11 @@ export default function Patients() {
               <tbody>
                 {patients.map((p) => (
                   <tr key={p.id}>
-                    <td className="clinic-patient-name">
-                      {p.last_name} <span style={{ color: 'var(--clinic-muted)', fontWeight: 400 }}>{p.first_name}</span>
-                    </td>
+                   <td className="clinic-patient-name">
+  <Link to={`/patients/${p.id}`} className="clinic-link-name">
+    {p.last_name} <span style={{ color: 'var(--clinic-muted)', fontWeight: 400 }}>{p.first_name}</span>
+  </Link>
+</td>
                     <td>{p.birth_date ?? '—'}</td>
                     <td>{p.sex ?? '—'}</td>
                   </tr>
