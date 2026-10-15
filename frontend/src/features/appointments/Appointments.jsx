@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { fmtDateTime, fullName } from '../../lib/format'
+import { useSearchParams } from 'react-router-dom'
+
 
 const STATUS = {
   scheduled: { text: 'Prévu', cls: 'info' },
@@ -15,8 +17,10 @@ export default function Appointments() {
   const { user } = useAuth()
   const [patients, setPatients] = useState([])
   const [appts, setAppts] = useState([])
-  const [form, setForm] = useState(emptyForm)
+ const [params] = useSearchParams()
+const [form, setForm] = useState({ ...emptyForm, patient_id: params.get('patient') ?? '' })
   const [error, setError] = useState('')
+  
 
   async function load() {
     const { data: p, error: e1 } = await supabase

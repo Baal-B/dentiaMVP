@@ -122,8 +122,9 @@ export default function Review() {
       <Link to="/analysis" className="clinic-back">
         <ArrowLeft size={18} /> Retour aux analyses
       </Link>
-      <h1 className="clinic-page-title">{fullName(patient)}</h1>
-      <p className="clinic-page-sub">
+<h1 className="clinic-page-title">
+  <Link to={`/patients/${rg.patient_id}`} className="clinic-link-name">{fullName(patient)}</Link>
+</h1>      <p className="clinic-page-sub">
         {KINDS[rg.kind]} · {fmtDate(rg.taken_at ?? rg.created_at)}
       </p>
 

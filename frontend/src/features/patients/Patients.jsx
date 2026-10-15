@@ -50,25 +50,7 @@ export default function Patients() {
 
   return (
     <div className="clinic-app">
-      <header className="clinic-topbar">
-        <div className="clinic-topbar-left">
-          <div className="clinic-brand-mark" style={{ width: 28, height: 28, fontSize: 14 }}>D</div>
-          <span>DentaSuite</span>
-        </div>
-
-        <div className="clinic-topbar-user">
-          <div className="clinic-avatar">{initials}</div>
-          <div style={{ lineHeight: 1.2 }}>
-            <div style={{ color: 'var(--clinic-text)', fontWeight: 500 }}>
-              {profile?.full_name || user.email}
-            </div>
-            <div>
-              <span className="clinic-role-pill">{profile?.role ?? 'praticien'}</span>
-            </div>
-          </div>
-          <button onClick={signOut} className="clinic-btn clinic-btn-ghost">Déconnexion</button>
-        </div>
-      </header>
+     
 
       <main className="clinic-main">
         <h1 className="clinic-page-title">Patients</h1>

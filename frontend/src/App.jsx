@@ -7,6 +7,8 @@ import Patients from './features/patients/Patients'
 import Analysis from './features/analysis/Analysis'
 import Appointments from './features/appointments/Appointments'
 import Review from './features/analysis/Review'
+import PatientFile from './features/patients/PatientFile'
+
 
 
 export default function App() {
@@ -17,6 +19,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="patients" element={<Patients />} />
+          <Route path="patients/:id" element={<PatientFile />} />
           <Route path="analysis" element={<Analysis />} />
           <Route path="analysis/:id" element={<Review />} />
           <Route path="appointments" element={<Appointments />} />

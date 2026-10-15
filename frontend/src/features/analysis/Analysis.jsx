@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+
 import { supabase } from '../../lib/supabase'
 import { api } from '../../lib/api'
 import { useAuth } from '../auth/AuthProvider'
 import { fmtDate, fullName } from '../../lib/format'
 import AssistantPanel from './AssistantPanel'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+
 
 const MAX_SIZE = 30 * 1024 * 1024 // matches the bucket limit
 const TYPES = ['image/png', 'image/jpeg']
@@ -26,7 +28,8 @@ export default function Analysis() {
   const [patients, setPatients] = useState([])
   const [recent, setRecent] = useState([])
   const [analyses, setAnalyses] = useState({})
-  const [form, setForm] = useState(emptyForm)
+  const [params] = useSearchParams()
+  const [form, setForm] = useState({ ...emptyForm, patient_id: params.get('patient') ?? '' })
   const [file, setFile] = useState(null)
   const [fileKey, setFileKey] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -39,6 +42,7 @@ export default function Analysis() {
       .from('patients').select('id, first_name, last_name').order('last_name')
     if (e1) return setError(e1.message)
     setPatients(p)
+    setForm((f) => (p.some((x) => x.id === f.patient_id) ? f : { ...f, patient_id: '' }))
 
     const { data: r, error: e2 } = await supabase
       .from('radiographs')
