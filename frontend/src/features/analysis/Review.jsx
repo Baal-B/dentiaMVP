@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../auth/AuthProvider'
+import { buildReport } from '../../lib/report'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { api } from '../../lib/api'
@@ -12,6 +14,9 @@ const KINDS = { panoramic: 'Panoramique', periapical: 'Rétro-alvéolaire', bite
 
 export default function Review() {
   const { id } = useParams()
+  const { user } = useAuth()
+const navigate = useNavigate()
+const [report, setReport] = useState(null)
   const [rg, setRg] = useState(null)
   const [patient, setPatient] = useState(null)
   const [analysis, setAnalysis] = useState(null)
@@ -47,6 +52,13 @@ export default function Review() {
     setPatient(p.data)
     const an = a.data?.[0] ?? null
     setAnalysis(an)
+    if (an) {
+  const { data: rep } = await supabase
+    .from('reports').select('id, status').eq('analysis_id', an.id).limit(1)
+  setReport(rep?.[0] ?? null)
+} else {
+  setReport(null)
+}
     setDecisions(
       an?.validated_findings
         ? Object.fromEntries(an.validated_findings.map((f) => [f.id, f.decision]))
@@ -85,6 +97,27 @@ export default function Review() {
     await load()
     setBusy('')
   }
+
+  async function createReport() {
+  setBusy('report')
+  setError('')
+  const { content, citations } = buildReport({ radiograph: rg, analysis, queries })
+  const { data, error } = await supabase
+    .from('reports')
+    .insert({
+      doctor_id: user.id,
+      patient_id: rg.patient_id,
+      analysis_id: analysis.id,
+      title: `Rapport radiologique — ${fullName(patient)}`,
+      content,
+      citations,
+    })
+    .select('id')
+    .single()
+  setBusy('')
+  if (error) return setError(error.message)
+  navigate(`/reports/${data.id}`)
+}
 
   async function save(status) {
     setBusy('save')
@@ -227,13 +260,34 @@ export default function Review() {
                         </span>
                       )}
                       {readOnly ? (
-                        <span
-                          className={'clinic-pill ' + (d === 'accepted' ? 'ok' : '')}
-                          style={{ marginTop: 6 }}
-                        >
-                          {d === 'accepted' ? 'Accepté' : d === 'rejected' ? 'Rejeté' : '—'}
-                        </span>
-                      ) : (
+  <>
+    <p
+      className={analysis.validation_status === 'validated' ? 'clinic-success' : 'clinic-error'}
+      style={{ margin: 0 }}
+    >
+      {analysis.validation_status === 'validated' ? 'Revue validée.' : 'Analyse rejetée.'}
+    </p>
+    {analysis.validation_status === 'validated' &&
+      (report ? (
+        <Link
+          to={`/reports/${report.id}`}
+          className="clinic-btn clinic-btn-primary clinic-btn-block"
+          style={{ marginTop: 12 }}
+        >
+          {report.status === 'signed' ? 'Voir le rapport signé' : 'Ouvrir le brouillon du rapport'}
+        </Link>
+      ) : (
+        <button
+          className="clinic-btn clinic-btn-primary clinic-btn-block"
+          style={{ marginTop: 12 }}
+          onClick={createReport}
+          disabled={busy === 'report'}
+        >
+          {busy === 'report' ? 'Création…' : 'Générer le rapport'}
+        </button>
+      ))}
+  </>
+) : (
                         <div className="clinic-decide">
                           <button
                             className={'clinic-btn clinic-btn-ghost' + (d === 'accepted' ? ' on-accept' : '')}

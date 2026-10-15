@@ -8,6 +8,9 @@ import Analysis from './features/analysis/Analysis'
 import Appointments from './features/appointments/Appointments'
 import Review from './features/analysis/Review'
 import PatientFile from './features/patients/PatientFile'
+import Reports from './features/reports/Reports'
+import ReportEditor from './features/reports/ReportEditor'
+
 
 
 
@@ -23,6 +26,8 @@ export default function App() {
           <Route path="analysis" element={<Analysis />} />
           <Route path="analysis/:id" element={<Review />} />
           <Route path="appointments" element={<Appointments />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="reports/:id" element={<ReportEditor />} />  
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

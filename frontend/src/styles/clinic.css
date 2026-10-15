@@ -883,3 +883,17 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ---------- Report ---------- */
+.clinic-report { max-width: 900px; }
+.report-block { margin-bottom: 20px; }
+.report-text { white-space: pre-wrap; margin: 0; }
+.report-title-input { font-size: 24px; font-weight: 700; }
+
+@media print {
+  .clinic-sidebar, .no-print { display: none !important; }
+  .clinic-shell { display: block; }
+  .clinic-main { max-width: none; padding: 0; }
+  body { background: #fff; }
+  .clinic-card { box-shadow: none; break-inside: avoid; }
+}

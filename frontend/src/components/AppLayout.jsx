@@ -11,11 +11,12 @@ const nav = [
   { to: '/patients', label: 'Patients', icon: Users },
   { to: '/analysis', label: 'Nouvelle analyse', icon: Scan },
   { to: '/appointments', label: 'Rendez-vous', icon: CalendarDays },
+  { to: '/reports', label: 'Rapports', icon: FileText },
 ]
 
 const soon = [
   { label: 'Assistant clinique', icon: MessageSquare },
-  { label: 'Rapports', icon: FileText },
+  
   { label: 'Notifications', icon: Bell },
 ]
 

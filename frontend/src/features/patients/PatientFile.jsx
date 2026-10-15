@@ -282,7 +282,7 @@ export default function PatientFile() {
           {reports.length === 0 ? (
             <div className="clinic-empty">
               Aucun rapport.<br />
-              <span style={{ fontSize: 14 }}>La génération de rapports arrive à l'étape suivante.</span>
+              
             </div>
           ) : (
             <table className="clinic-table">
@@ -291,7 +291,9 @@ export default function PatientFile() {
                   const s = REPORT_STATUS[r.status]
                   return (
                     <tr key={r.id}>
-                      <td className="clinic-patient-name">{r.title || 'Sans titre'}</td>
+                    <td className="clinic-patient-name">
+  <Link to={`/reports/${r.id}`} className="clinic-link-name">{r.title || 'Sans titre'}</Link>
+</td>
                       <td>{fmtDate(r.signed_at ?? r.created_at)}</td>
                       <td><span className={`clinic-pill ${s.cls}`}>{s.text}</span></td>
                     </tr>
