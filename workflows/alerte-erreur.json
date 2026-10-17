@@ -1,0 +1,70 @@
+{
+  "name": "DentIA - Alerte erreur",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "63a82edd-abcb-491e-a4f1-8d5ad7852a72",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "fromEmail": "DentIA <mariemtoumi44@gmail.com>",
+        "toEmail": "mariemtoumi44@gmail.com",
+        "subject": "=DentIA : échec du workflow {{ $json.workflow.name }}",
+        "html": "=<p>Le workflow <strong>{{ $json.workflow.name }}</strong> a échoué.</p>\n\n<ul>\n  <li>Nœud en erreur : {{ $json.execution.lastNodeExecuted }}</li>\n  <li>Message : {{ $json.execution.error.message }}</li>\n  <li>Détail de l'exécution : <a href=\"{{ $json.execution.url }}\">{{ $json.execution.url }}</a></li>\n</ul>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        176,
+        0
+      ],
+      "id": "e9ba519c-e369-498c-bc39-7077b484d357",
+      "name": "Envoyer l'alerte",
+      "webhookId": "00ca4252-20bd-44c1-8d71-f934607c03ca",
+      "credentials": {
+        "smtp": {
+          "id": "CJFC4OWoSJBkLJD4",
+          "name": "DentIA Gmail SMTP"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Envoyer l'alerte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "a8145184-0078-4ee9-b067-daa9ccc35c5f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6b22d0fbdddf935406c3bd2aefcadbea1f9b57e742ab808aabc98319b91e7457"
+  },
+  "nodeGroups": [],
+  "id": "o2iUcjv4OskK8oW8",
+  "tags": []
+}
