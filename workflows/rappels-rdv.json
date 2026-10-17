@@ -1,0 +1,144 @@
+{
+  "name": "DentIA - Rappels RDV",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3120e1e4-d055-45b0-95f5-b67a639e9598",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  r.id AS rdv_id,\n  r.date_rdv,\n  p.prenom,\n  p.email,\n  p.telephone\nFROM rendez_vous r\nJOIN patients p ON p.id = r.patient_id\nWHERE r.statut = 'confirme'\n  AND r.rappel_email_envoye_at IS NULL\n  AND r.date_rdv >= CURRENT_DATE + 1\n  AND r.date_rdv <  CURRENT_DATE + 2\nORDER BY r.date_rdv;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "1f288e0e-67fb-4724-a37d-60ae9ec24d65",
+      "name": "Rendez-vous de demain",
+      "credentials": {
+        "postgres": {
+          "id": "FoWChcvSfrRo1pKi",
+          "name": "DentIA Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "DentIA <mariemtoumi44@gmail.com>",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Rappel : votre rendez-vous de demain",
+        "html": "=<p>Bonjour {{ $json.prenom }},</p>\n\n<p>Nous vous rappelons votre rendez-vous au cabinet dentaire :\n<strong>{{ new Date($json.date_rdv).toLocaleString('fr-FR', { timeZone: 'Africa/Tunis', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) }}</strong>.</p>\n\n<p>Si vous ne pouvez pas venir, merci de nous prévenir dès que possible.</p>\n\n<p>À bientôt,<br>L'équipe DentIA</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "aa89b06c-7224-44c9-a038-9ff6d7993a61",
+      "name": "Envoyer le rappel",
+      "webhookId": "daf0b8a9-5405-45e8-829a-a72858e139e6",
+      "credentials": {
+        "smtp": {
+          "id": "CJFC4OWoSJBkLJD4",
+          "name": "DentIA Gmail SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE rendez_vous\nSET rappel_email_envoye_at = NOW()\nWHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('Rendez-vous de demain').item.json.rdv_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        592,
+        0
+      ],
+      "id": "4350b4a0-410c-4fb6-b645-7b19fd5b60ca",
+      "name": "Marquer rappel envoyé",
+      "credentials": {
+        "postgres": {
+          "id": "FoWChcvSfrRo1pKi",
+          "name": "DentIA Postgres"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Rendez-vous de demain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rendez-vous de demain": {
+      "main": [
+        [
+          {
+            "node": "Envoyer le rappel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envoyer le rappel": {
+      "main": [
+        [
+          {
+            "node": "Marquer rappel envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "4604c33c-042c-421e-9d4b-31bfcb319fc3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6b22d0fbdddf935406c3bd2aefcadbea1f9b57e742ab808aabc98319b91e7457"
+  },
+  "nodeGroups": [],
+  "id": "unefP5kTydluvCNX",
+  "tags": []
+}
