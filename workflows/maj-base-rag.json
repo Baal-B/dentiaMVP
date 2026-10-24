@@ -1,0 +1,242 @@
+{
+  "name": "DentIA - Mise à jour base RAG",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        32,
+        0
+      ],
+      "id": "a33d6290-c929-4bef-b7d0-378bc265fc52",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "db",
+              "value": "pubmed"
+            },
+            {
+              "name": "term",
+              "value": "(dental[tiab] OR dentistry[tiab] OR \"dental implants\"[tiab] OR periodontitis[tiab] OR orthodontics[tiab] OR endodontic*[tiab]) AND (\"artificial intelligence\"[tiab] OR \"deep learning\"[tiab] OR \"machine learning\"[tiab])"
+            },
+            {
+              "name": "retmode",
+              "value": "json"
+            },
+            {
+              "name": "retmax",
+              "value": "10"
+            },
+            {
+              "name": "sort",
+              "value": "pub_date"
+            },
+            {
+              "name": "datetype",
+              "value": "pdat"
+            },
+            {
+              "name": "reldate",
+              "value": "7"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "151f6c49-eeea-4d18-ad08-87e2553f5e92",
+      "name": "Chercher sur PubMed"
+    },
+    {
+      "parameters": {
+        "url": "=https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&retmode=xml&id={{ $json.esearchresult.idlist.join(',') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        432,
+        0
+      ],
+      "id": "80fdc8f2-94b3-497c-ac31-8d64efaa1550",
+      "name": "Récupérer les résumés"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Découpe le XML PubMed (efetch) en documents prêts à être vectorisés\nconst xml = $input.first().json.data || '';\n\n// Retire les balises internes (<i>, <sup>...) puis décode les entités HTML\nconst decode = (s) => s\n  .replace(/<[^>]+>/g, '')\n  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\")\n  .replace(/&#(\\d+);/g, (_, n) => String.fromCharCode(Number(n)))\n  .replace(/&amp;/g, '&')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nconst blocs = xml.match(/<PubmedArticle>[\\s\\S]*?<\\/PubmedArticle>/g) || [];\n\nconst ids = [];\nconst documents = [];\nconst metadatas = [];\nlet sansResume = 0;\n\nfor (const bloc of blocs) {\n  const pmid = (bloc.match(/<PMID[^>]*>(\\d+)<\\/PMID>/) || [])[1];\n  const titre = decode((bloc.match(/<ArticleTitle[^>]*>([\\s\\S]*?)<\\/ArticleTitle>/) || [])[1] || '');\n  const revue = decode((bloc.match(/<Journal>[\\s\\S]*?<Title>([\\s\\S]*?)<\\/Title>/) || [])[1] || '');\n  const annee = (bloc.match(/<PubDate>[\\s\\S]*?<Year>(\\d{4})<\\/Year>/) || [])[1] || '';\n\n  // Un résumé peut être en plusieurs parties (Background, Methods, Results...)\n  const parties = [...bloc.matchAll(/<AbstractText([^>]*)>([\\s\\S]*?)<\\/AbstractText>/g)].map((m) => {\n    const label = (m[1].match(/Label=\"([^\"]*)\"/) || [])[1];\n    const texte = decode(m[2]);\n    return label ? `${label}: ${texte}` : texte;\n  });\n  const resume = parties.join(' ');\n\n  // Sans résumé, il n'y a rien d'utile à indexer\n  if (!pmid || !titre || !resume) {\n    sansResume++;\n    continue;\n  }\n\n  ids.push(`pubmed-${pmid}`);\n  documents.push(`${titre}\\n\\n${resume}`);\n  metadatas.push({\n    source: 'pubmed',\n    pmid,\n    titre,\n    revue,\n    annee,\n    lien: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,\n  });\n}\n\n// Contrôle d'encodage : compte les caractères chinois parasites (accents mal décodés)\nconst encodageSuspect = (documents.join(' ').match(/[\\u4e00-\\u9fff]/g) || []).length;\n\n// Rien à indexer cette semaine : on s'arrête sans erreur\nif (documents.length === 0) return [];\n\nreturn [{ json: { nombre: documents.length, sansResume, encodageSuspect, ids, documents, metadatas } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        0
+      ],
+      "id": "ef274c52-5b89-4132-b517-b89c98bbce49",
+      "name": "Préparer les documents"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embed",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"model\": \"nomic-embed-text\", \"input\": $json.documents } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ],
+      "id": "fd7a1370-7fbd-42e7-be55-c0322ca8cec7",
+      "name": "Calculer les embeddings"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v2/tenants/default_tenant/databases/default_database/collections",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"name\": \"dentia_pubmed\", \"get_or_create\": true }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1104,
+        0
+      ],
+      "id": "2981f73a-6de1-44fb-99d8-533c23abfab0",
+      "name": "Collection Chroma"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8000/api/v2/tenants/default_tenant/databases/default_database/collections/{{ $json.id }}/upsert",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"ids\": $('Préparer les documents').first().json.ids,\n  \"embeddings\": $('Calculer les embeddings').first().json.embeddings,\n  \"documents\": $('Préparer les documents').first().json.documents,\n  \"metadatas\": $('Préparer les documents').first().json.metadatas\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1328,
+        0
+      ],
+      "id": "641fb8ac-c34c-4da0-8b47-d5547837f080",
+      "name": "Envoyer à Chroma"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Chercher sur PubMed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chercher sur PubMed": {
+      "main": [
+        [
+          {
+            "node": "Récupérer les résumés",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Récupérer les résumés": {
+      "main": [
+        [
+          {
+            "node": "Préparer les documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer les documents": {
+      "main": [
+        [
+          {
+            "node": "Calculer les embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculer les embeddings": {
+      "main": [
+        [
+          {
+            "node": "Collection Chroma",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collection Chroma": {
+      "main": [
+        [
+          {
+            "node": "Envoyer à Chroma",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "o2iUcjv4OskK8oW8"
+  },
+  "versionId": "9b2d53d0-b652-4661-8378-78896a66ffbf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6b22d0fbdddf935406c3bd2aefcadbea1f9b57e742ab808aabc98319b91e7457"
+  },
+  "nodeGroups": [],
+  "id": "yxcnIlHAWmat1kvo",
+  "tags": []
+}
