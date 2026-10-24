@@ -15,5 +15,15 @@ services:
       - dentia_pgdata:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
 
+  chroma:
+    image: chromadb/chroma
+    container_name: dentia-chroma
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - dentia_chroma:/data
+
 volumes:
   dentia_pgdata:
+  dentia_chroma:
