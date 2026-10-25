@@ -4,3 +4,4 @@ beautifulsoup4>=4.12
 fonttools>=4.0
 # Second PDF text extractor, used with: --engine pymupdf  (license: AGPL, note it in your license list)
 pymupdf>=1.24
+chromadb>=0.5
