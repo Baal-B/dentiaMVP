@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Datasets and large training data
+training_data/
+validation_data/
+dentex_yolo/
+extracted_slides/
+predictions/
+runs/
+
+# Cache and local labels
+*.cache
+labels.cache
+
+# Base YOLO pretrained checkpoints (downloadable automatically)
+yolo*.pt
+!weights/denti_yolo11m_best.pt
