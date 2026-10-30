@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import '../../styles/clinic.css'
 import { Link } from 'react-router-dom'
+import { ChevronDown } from 'lucide-react'
 
 
 const emptyForm = { first_name: '', last_name: '', birth_date: '', sex: '' }
@@ -13,6 +14,7 @@ export default function Patients() {
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [isPatientFormOpen, setIsPatientFormOpen] = useState(false)
 
   async function load() {
     const { data, error } = await supabase
@@ -65,9 +67,20 @@ export default function Patients() {
 
         <section className="clinic-card" style={{ marginBottom: 24 }}>
           <div className="clinic-card-header">
-            <h2 className="clinic-card-title">Nouveau patient</h2>
+            <h2 className="clinic-card-title clinic-card-title--collapsible">
+              <button
+                type="button"
+                className="clinic-collapse-trigger"
+                aria-expanded={isPatientFormOpen}
+                aria-controls="new-patient-form-panel"
+                onClick={() => setIsPatientFormOpen((isOpen) => !isOpen)}
+              >
+                Nouveau patient
+                <ChevronDown className="clinic-collapse-icon" size={20} aria-hidden="true" />
+              </button>
+            </h2>
           </div>
-          <div className="clinic-card-body">
+          <div id="new-patient-form-panel" className="clinic-card-body" hidden={!isPatientFormOpen}>
             <form onSubmit={addPatient} className="clinic-form-grid clinic-form-grid--spacious">
               <div className="clinic-field clinic-col-3">
                 <label htmlFor="first_name">Prénom</label>

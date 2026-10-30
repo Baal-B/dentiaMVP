@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { fmtDateTime, fullName } from '../../lib/format'
 import { useSearchParams } from 'react-router-dom'
+import { ChevronDown } from 'lucide-react'
 
 
 const STATUS = {
@@ -20,6 +21,7 @@ export default function Appointments() {
  const [params] = useSearchParams()
 const [form, setForm] = useState({ ...emptyForm, patient_id: params.get('patient') ?? '' })
   const [error, setError] = useState('')
+  const [isAppointmentFormOpen, setIsAppointmentFormOpen] = useState(false)
   
 
   async function load() {
@@ -81,9 +83,24 @@ const [form, setForm] = useState({ ...emptyForm, patient_id: params.get('patient
 
       <section className="clinic-card" style={{ marginBottom: 24 }}>
         <div className="clinic-card-header">
-          <h2 className="clinic-card-title">Nouveau rendez-vous</h2>
+          <h2 className="clinic-card-title clinic-card-title--collapsible">
+            <button
+              type="button"
+              className="clinic-collapse-trigger"
+              aria-expanded={isAppointmentFormOpen}
+              aria-controls="new-appointment-form-panel"
+              onClick={() => setIsAppointmentFormOpen((isOpen) => !isOpen)}
+            >
+              Nouveau rendez-vous
+              <ChevronDown className="clinic-collapse-icon" size={20} aria-hidden="true" />
+            </button>
+          </h2>
         </div>
-        <div className="clinic-card-body">
+        <div
+          id="new-appointment-form-panel"
+          className="clinic-card-body"
+          hidden={!isAppointmentFormOpen}
+        >
           <form onSubmit={handleSubmit} className="clinic-form-grid clinic-form-grid--spacious">
             <div className="clinic-field clinic-col-4">
               <label htmlFor="a_patient">Patient</label>

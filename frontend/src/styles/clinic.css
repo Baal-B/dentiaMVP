@@ -153,7 +153,7 @@ body {
 
 .clinic-brand-mark {
   width: 280px;
-  height: 280px;
+  
   object-fit: contain;
    display: block;
   filter: drop-shadow(0 6px 12px rgba(59, 130, 246, 0.35));
@@ -407,6 +407,8 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 
 /* ---------- Cards ---------- */
 .clinic-card {
+  
+
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   border: 1px solid var(--clinic-border);
   border-radius: var(--clinic-radius);
@@ -421,6 +423,7 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 }
 
 .clinic-card-header {
+  
   padding: 20px 24px;
   border-bottom: 1px solid var(--clinic-border);
   display: flex;
@@ -430,7 +433,37 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
   border-radius: var(--clinic-radius) var(--clinic-radius) 0 0;
 }
 
+.clinic-collapse-trigger {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.clinic-card-title--collapsible { flex: 1; }
+.clinic-collapse-trigger:focus-visible {
+  outline: 2px solid var(--clinic-primary);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.clinic-collapse-icon {
+  flex-shrink: 0;
+  transition: transform 180ms var(--clinic-ease);
+}
+.clinic-collapse-trigger[aria-expanded='true'] .clinic-collapse-icon {
+  transform: rotate(180deg);
+}
+
 .clinic-card-title {
+ 
   margin: 0;
   font-size: 18px;
   font-weight: 700;
@@ -479,7 +512,8 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 
 /* ---------- Form grid ---------- */
 .clinic-form-grid {
-  display: grid;
+  
+  width: 70%;
   grid-template-columns: repeat(12, 1fr);
   gap: 16px;
   align-items: end;
