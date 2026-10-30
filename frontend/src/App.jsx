@@ -10,6 +10,8 @@ import Review from './features/analysis/Review'
 import PatientFile from './features/patients/PatientFile'
 import Reports from './features/reports/Reports'
 import ReportEditor from './features/reports/ReportEditor'
+import Notifications from './features/notifications/Notifications'
+import Settings from './features/settings/Settings'
 
 
 
@@ -28,6 +30,8 @@ export default function App() {
           <Route path="appointments" element={<Appointments />} />
           <Route path="reports" element={<Reports />} />
           <Route path="reports/:id" element={<ReportEditor />} />  
+          <Route path="notifications" element={<Notifications />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

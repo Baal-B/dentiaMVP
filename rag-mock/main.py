@@ -7,8 +7,13 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 from store import collection, embed_query, model  # noqa: E402  (after load_dotenv so env vars apply)
+import hmac
+from fastapi import FastAPI, Header, HTTPException   # extend your existing fastapi import
+from ingest import add_articles
+
 
 MIN_SCORE = float(os.getenv("MIN_SCORE", "0.80"))
+ADMIN_KEY = os.getenv("RAG_ADMIN_KEY", "")
 
 
 @asynccontextmanager
@@ -44,6 +49,11 @@ class SearchResponse(BaseModel):
     query: str
     results: list[SearchResult]
     insufficient_evidence: bool
+
+
+class IngestRequest(BaseModel):
+    articles: list[dict]
+
 
 
 @app.get("/health")
@@ -87,3 +97,10 @@ def search(req: SearchRequest):
             break
 
     return SearchResponse(query=req.query, results=results, insufficient_evidence=len(results) == 0)
+
+@app.post("/ingest")
+def ingest_articles(body: IngestRequest, x_admin_key: str | None = Header(default=None)):
+    """Used by scrape.py to add new articles while the service is running."""
+    if not ADMIN_KEY or not x_admin_key or not hmac.compare_digest(x_admin_key, ADMIN_KEY):
+        raise HTTPException(403, "Forbidden")
+    return {"chunks_added": add_articles(collection(), body.articles)}

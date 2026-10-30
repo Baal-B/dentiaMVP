@@ -9,9 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel, Field
 from supabase import create_client
+import logging
+from llm import ENABLED as LLM_ENABLED, MODEL as LLM_MODEL, finalize, generate
+
+
 
 load_dotenv()
 
+log = logging.getLogger("uvicorn.error")
 # Service-role client: bypasses RLS. Every query below must therefore check ownership by hand.
 sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
 
@@ -158,6 +163,68 @@ class AssistantRequest(BaseModel):
 
 @app.post("/assistant")
 def ask_assistant(body: AssistantRequest, user=Depends(current_user)):
+    # ownership checks (this client bypasses RLS)
+    patient = (sb.table("patients").select("id")
+               .eq("id", body.patient_id).eq("doctor_id", user.id).limit(1).execute())
+    if not patient.data:
+        raise HTTPException(404, "Patient not found")
+    if body.radiograph_id:
+        rg = (sb.table("radiographs").select("id")
+              .eq("id", body.radiograph_id).eq("doctor_id", user.id)
+              .eq("patient_id", body.patient_id).limit(1).execute())
+        if not rg.data:
+            raise HTTPException(404, "Radiograph not found")
+
+    try:
+        r = httpx.post(f"{RAG_URL}/search", json={"query": body.question, "top_k": 3}, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+    except httpx.HTTPError:
+        raise HTTPException(502, "Literature search unavailable")
+
+    retrieved = [
+        {"n": i + 1, "title": x["title"], "authors": x["authors"], "journal": x["journal"],
+         "year": x["year"], "doi": x["doi"], "url": x["url"], "passage": x["passage"]}
+        for i, x in enumerate(data["results"])
+    ]
+
+    answer, citations, insufficient, model_used = "", [], False, None
+
+    if not retrieved:
+        insufficient = True
+    elif LLM_ENABLED:
+        try:
+            out = generate(body.question, retrieved)
+            if not out["sufficient"]:
+                insufficient = True
+            else:
+                answer, order = finalize(out["answer"], len(retrieved))
+                # keep only the sources the answer cites, renumbered to match the text
+                citations = [{**retrieved[o - 1], "n": i} for i, o in enumerate(order, 1)]
+                model_used = LLM_MODEL
+        except Exception as e:
+            log.warning("LLM step failed, falling back to raw passages: %s", e)
+            answer, citations, insufficient = "", [], False
+
+    if not insufficient and model_used is None:
+        citations = retrieved  # fallback: raw passages, no generated text
+
+    row = {
+        "doctor_id": user.id,
+        "patient_id": body.patient_id,
+        "question": body.question.strip(),
+        "answer": answer,
+        "citations": citations,
+        "insufficient_evidence": insufficient,
+        "llm_model": model_used,
+    }
+    if body.radiograph_id:
+        row["radiograph_id"] = body.radiograph_id
+    try:
+        saved = sb.table("assistant_queries").insert(row).execute()
+    except Exception as e:
+        raise HTTPException(500, f"Could not save the search: {e}")
+    return saved.data[0]
     # ownership checks (this client bypasses RLS)
     patient = (sb.table("patients").select("id")
                .eq("id", body.patient_id).eq("doctor_id", user.id).limit(1).execute())

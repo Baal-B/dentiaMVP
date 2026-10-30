@@ -44,8 +44,7 @@ export default function Review() {
         .select('id, status, findings, model_info, validation_status, validated_findings, error, created_at')
         .eq('radiograph_id', id).order('created_at', { ascending: false }).limit(1),
       supabase.from('assistant_queries')
-        .select('id, question, answer, citations, insufficient_evidence, created_at')
-        .eq('radiograph_id', id).order('created_at', { ascending: false }),
+.select('id, question, answer, citations, insufficient_evidence, llm_model, created_at')        .eq('radiograph_id', id).order('created_at', { ascending: false }),
       supabase.storage.from('radiographs').createSignedUrl(r.storage_path, 3600),
     ])
 

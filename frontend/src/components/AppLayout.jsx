@@ -1,10 +1,15 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import {
-  LayoutDashboard, Users, Scan, CalendarDays,
-  MessageSquare, FileText, Bell, LogOut,
-} from 'lucide-react'
+
 import { useAuth } from '../features/auth/AuthProvider'
 import '../styles/clinic.css'
+
+import logo from '../assets/logo.png'
+
+import {
+  LayoutDashboard, Users, Scan, CalendarDays,
+  MessageSquare, FileText, Bell, Settings as SettingsIcon, LogOut,
+} from 'lucide-react'
+import { useUnread } from '../features/notifications/useUnread'
 
 const nav = [
   { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
@@ -12,16 +17,20 @@ const nav = [
   { to: '/analysis', label: 'Nouvelle analyse', icon: Scan },
   { to: '/appointments', label: 'Rendez-vous', icon: CalendarDays },
   { to: '/reports', label: 'Rapports', icon: FileText },
+  { to: '/notifications', label: 'Notifications', icon: Bell, badge: true },
+{ to: '/settings', label: 'Paramètres', icon: SettingsIcon },
 ]
 
 const soon = [
   { label: 'Assistant clinique', icon: MessageSquare },
   
-  { label: 'Notifications', icon: Bell },
+ 
 ]
 
 export default function AppLayout() {
   const { user, profile, signOut } = useAuth()
+  const unread = useUnread()
+
 
   const initials = (profile?.full_name || user?.email || '?')
     .split(/\s|@/)
@@ -34,12 +43,12 @@ export default function AppLayout() {
     <div className="clinic-shell">
       <aside className="clinic-sidebar">
         <div className="clinic-brand" style={{ marginBottom: 8 }}>
-          <div className="clinic-brand-mark">D</div>
-          <div className="clinic-brand-name">DentIA</div>
-        </div>
+  <img src={logo} alt="DentIA" className="clinic-brand-mark" />
+ 
+</div>
 
         <nav className="clinic-nav">
-          {nav.map(({ to, label, icon: Icon, end }) => (
+          {nav.map(({ to, label, icon: Icon, end, badge }) => (
             <NavLink
               key={to}
               to={to}
@@ -48,6 +57,7 @@ export default function AppLayout() {
             >
               <Icon size={20} />
               <span className="clinic-nav-label">{label}</span>
+               {badge && unread > 0 && <span className="clinic-badge">{unread}</span>}
             </NavLink>
           ))}
 

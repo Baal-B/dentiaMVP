@@ -48,8 +48,7 @@ export default function PatientFile() {
         .select('id, title, status, created_at, signed_at')
         .eq('patient_id', id).order('created_at', { ascending: false }),
       supabase.from('assistant_queries')
-        .select('id, question, answer, citations, insufficient_evidence, created_at')
-        .eq('patient_id', id).is('radiograph_id', null).order('created_at', { ascending: false }),
+.select('id, question, answer, citations, insufficient_evidence, llm_model, created_at')        .eq('patient_id', id).is('radiograph_id', null).order('created_at', { ascending: false }),
     ])
 
     const failed = [r, a, rp, q].find((x) => x.error)

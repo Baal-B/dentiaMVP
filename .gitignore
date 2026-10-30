@@ -24,6 +24,7 @@ dist-ssr
 *.sw?
 
 *.pt
+*.log
 
 .venv/
 __pycache__/

@@ -198,6 +198,9 @@ export default function Analysis() {
                 <textarea id="symptoms" className="clinic-input"
                   placeholder="Ex : douleur persistante molaire inférieure droite depuis 3 jours, sensibilité au froid…"
                   value={form.symptoms} onChange={set('symptoms')} />
+                <small style={{ color: 'var(--clinic-muted)' }}>
+  N'indiquez ni nom, ni date de naissance, ni coordonnées : ce texte est envoyé à un service d'IA externe.
+</small>
               </div>
 
               <div className="clinic-col-12">

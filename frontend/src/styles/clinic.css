@@ -142,20 +142,21 @@ body {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.clinic-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
-
-.clinic-brand-mark {
-  width: 46px; height: 46px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 55%, #6366f1 100%);
-  color: #fff;
+.clinic-brand {
   display: grid;
   place-items: center;
-  font-weight: 700;
-  font-size: 20px;
-  box-shadow:
-    0 8px 20px -6px rgba(59, 130, 246, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  width: 100%;
+  margin: 0 0 16px;   /* was 28px bottom; trim to taste */
+  padding: 0;
+   flex-shrink: 0; 
+}
+
+.clinic-brand-mark {
+  width: 280px;
+  height: 280px;
+  object-fit: contain;
+   display: block;
+  filter: drop-shadow(0 6px 12px rgba(59, 130, 246, 0.35));
 }
 
 .clinic-brand-name {
@@ -547,6 +548,8 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
   width: 264px;
   flex-shrink: 0;
   position: sticky;
+   isolation: isolate;
+   overflow-y: auto; 
   top: 0;
   height: 100vh;
   display: flex;
@@ -555,6 +558,36 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
   background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
   border-right: 1px solid var(--clinic-border);
 }
+
+/* Gradient hairline on the right edge */
+/* Gradient hairline on the right edge */
+.clinic-sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 1px; height: 100%;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(59,130,246,0.25) 20%,
+    rgba(139,92,246,0.25) 50%,
+    rgba(126,224,193,0.22) 80%,
+    transparent 100%);
+  pointer-events: none;
+}
+
+/* Soft top-corner glow behind the brand */
+.clinic-sidebar::before {
+  content: '';
+  position: absolute;
+  top: -60px; left: -60px;
+  width: 260px; height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(142,197,255,0.22) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+
 
 .clinic-content { flex: 1; min-width: 0; }
 
@@ -901,4 +934,228 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 .clinic-report-cta { margin-top: 24px; }
 .clinic-report-cta .clinic-card-body {
   display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+
+
+.clinic-ai-answer {
+  padding: 16px 18px;
+  margin-bottom: 20px;
+  background: var(--clinic-primary-soft);
+  border: 1px solid var(--clinic-primary-soft-2);
+  border-radius: 12px;
+}
+.clinic-ai-answer p { margin: 10px 0 8px; }
+
+
+/* ---------- Notifications + settings ---------- */
+.clinic-badge {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--clinic-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+.clinic-notif-list { list-style: none; margin: 0; padding: 0; }
+.clinic-notif {
+  display: grid;
+  gap: 2px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--clinic-border);
+}
+.clinic-notif.unread { background: var(--clinic-primary-soft); }
+.clinic-notif a { color: inherit; text-decoration: none; }
+.clinic-notif a:hover strong { color: var(--clinic-primary); }
+
+.clinic-topic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.clinic-topic {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--clinic-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.clinic-topic.on { border-color: var(--clinic-primary); background: var(--clinic-primary-soft); }
+.clinic-topic input { width: 18px; height: 18px; }
+
+
+
+
+/* Icons inside nav/buttons/cards deepseek suggestions*/
+.clinic-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Faint dotted grid backdrop for main content — kills the "void" feeling */
+.clinic-main {
+  background-image:
+    radial-gradient(rgba(59, 130, 246, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-position: -1px -1px;
+}
+
+/* A subtle "top-left glow" makes cards feel dimensional, not empty */
+.clinic-card {
+  background:
+    radial-gradient(400px 200px at 0% 0%, rgba(142, 197, 255, 0.10) 0%, transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  position: relative;
+}
+
+/* Optional: colored corner tick */
+.clinic-card--accent::after {
+  content: '';
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--clinic-primary);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.clinic-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clinic-stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--clinic-primary-soft) 0%, #dbeafe 100%);
+  color: var(--clinic-primary-hover);
+  margin-bottom: 10px;
+}
+
+.clinic-stat-trend {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+.clinic-stat-trend.up   { color: var(--clinic-success-text); }
+.clinic-stat-trend.down { color: var(--clinic-danger); }
+
+
+.clinic-empty {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 72px 24px;
+  text-align: center;
+}
+.clinic-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--clinic-primary-soft);
+  color: var(--clinic-primary);
+  margin-bottom: 4px;
+}
+.clinic-empty h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--clinic-text);
+}
+.clinic-empty p {
+  margin: 0;
+  max-width: 360px;
+  color: var(--clinic-muted);
+}
+
+/* Soft alternating tint so a 2-row table still feels intentional */
+.clinic-table tbody tr:nth-child(even) {
+  background: linear-gradient(90deg, #fafcff 0%, #f5faff 100%);
+}
+
+/* Column with patient avatars for extra visual texture */
+.clinic-avatar-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dbeafe 0%, #c7e0fb 100%);
+  color: var(--clinic-primary-hover);
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  border: 2px solid #fff;
+  vertical-align: middle;
+  margin-right: 10px;
+}
+
+
+.clinic-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 28px 32px;
+  border-radius: var(--clinic-radius-lg);
+  margin-bottom: 24px;
+  background:
+    linear-gradient(135deg, #3b82f6 0%, #6366f1 60%, #8b5cf6 100%);
+  color: #fff;
+  box-shadow: var(--clinic-shadow-lg);
+}
+.clinic-hero h2 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.clinic-hero p { margin: 0; opacity: 0.9; font-size: 16px; }
+
+/* Big soft orb in the corner for depth */
+.clinic-hero::after {
+  content: '';
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  top: -120px;
+  right: -80px;
+  background: radial-gradient(circle, rgba(255,255,255,0.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+
+.clinic-activity { display: grid; gap: 0; }
+.clinic-activity-item {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--clinic-border);
+}
+.clinic-activity-item:last-child { border-bottom: none; }
+.clinic-activity-item .clinic-icon-badge {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--clinic-primary-soft);
+  color: var(--clinic-primary-hover);
+}
+.clinic-activity-time {
+  font-size: 13px;
+  color: var(--clinic-muted);
 }
