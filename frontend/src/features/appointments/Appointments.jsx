@@ -84,7 +84,7 @@ const [form, setForm] = useState({ ...emptyForm, patient_id: params.get('patient
           <h2 className="clinic-card-title">Nouveau rendez-vous</h2>
         </div>
         <div className="clinic-card-body">
-          <form onSubmit={handleSubmit} className="clinic-form-grid">
+          <form onSubmit={handleSubmit} className="clinic-form-grid clinic-form-grid--spacious">
             <div className="clinic-field clinic-col-4">
               <label htmlFor="a_patient">Patient</label>
               <select id="a_patient" className="clinic-input" value={form.patient_id}
@@ -108,7 +108,7 @@ const [form, setForm] = useState({ ...emptyForm, patient_id: params.get('patient
               <input id="a_end" className="clinic-input" type="time"
                 value={form.end} onChange={set('end')} required />
             </div>
-            <div className="clinic-col-2">
+            <div className="clinic-col-2 clinic-form-submit">
               <button type="submit" className="clinic-btn clinic-btn-primary clinic-btn-block">Planifier</button>
             </div>
             <div className="clinic-field clinic-col-12">

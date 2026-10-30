@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthProvider'
 import '../../styles/clinic.css'
+import logo from '../../assets/logo.png'
 
 export default function Login() {
   const { session, signIn } = useAuth()

@@ -484,11 +484,13 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
   gap: 16px;
   align-items: end;
 }
+.clinic-form-grid--spacious { column-gap: 24px; }
 .clinic-col-2 { grid-column: span 2; }
 .clinic-col-3 { grid-column: span 3; }
 .clinic-col-4 { grid-column: span 4; }
 .clinic-col-6 { grid-column: span 6; }
 .clinic-col-12 { grid-column: span 12; }
+.clinic-form-submit { margin-bottom: 18px; }
 
 @media (max-width: 760px) {
   .clinic-form-grid > * { grid-column: span 12 !important; }
@@ -545,13 +547,16 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 .clinic-shell { display: flex; min-height: 100vh; }
 
 .clinic-sidebar {
-  width: 264px;
+  width: 293px;
   flex-shrink: 0;
-  position: sticky;
-   isolation: isolate;
-   overflow-y: auto; 
+  position: fixed;
+  isolation: isolate;
+  overflow-y: auto;
   top: 0;
+  left: 0;
   height: 100vh;
+  box-sizing: border-box;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   padding: 22px 14px;
@@ -589,7 +594,7 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 
 
 
-.clinic-content { flex: 1; min-width: 0; }
+.clinic-content { flex: 1; min-width: 0; margin-left: 293px; }
 
 .clinic-nav { display: grid; gap: 4px; margin-top: 20px; }
 
@@ -650,7 +655,8 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 }
 
 @media (max-width: 900px) {
-  .clinic-sidebar { width: 76px; padding: 20px 10px; }
+  .clinic-sidebar { width: 97px; padding: 20px 10px; }
+  .clinic-content { margin-left: 97px; }
   .clinic-nav-label,
   .clinic-brand-name,
   .clinic-nav-section,
@@ -1158,4 +1164,61 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 .clinic-activity-time {
   font-size: 13px;
   color: var(--clinic-muted);
+}
+
+/* ---------- Decorative background depth ---------- */
+.clinic-content {
+  position: relative;
+  isolation: isolate;
+}
+
+.clinic-content::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 42rem 36rem at 0% 8%, rgba(255, 184, 119, 0.065) 0%, rgba(255, 184, 119, 0.025) 44%, transparent 76%),
+    radial-gradient(ellipse 38rem 34rem at 100% 42%, rgba(167, 139, 250, 0.07) 0%, rgba(167, 139, 250, 0.025) 48%, transparent 76%),
+    radial-gradient(ellipse 34rem 30rem at 14% 100%, rgba(126, 224, 193, 0.065) 0%, rgba(126, 224, 193, 0.02) 48%, transparent 76%),
+    radial-gradient(circle at 92% 4%, transparent 0 154px, rgba(59, 130, 246, 0.05) 155px 156px, transparent 157px 196px, rgba(167, 139, 250, 0.045) 197px 198px, transparent 199px),
+    repeating-linear-gradient(135deg, rgba(59, 130, 246, 0.035) 0 1px, transparent 1px 18px);
+}
+
+.clinic-sidebar {
+  background-image:
+    radial-gradient(280px 220px at 100% 100%, rgba(126, 224, 193, 0.13) 0%, transparent 72%),
+    linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.clinic-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 14px auto;
+  height: 1px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.45), rgba(167, 139, 250, 0.34) 48%, transparent 100%);
+  pointer-events: none;
+}
+
+.clinic-empty-icon {
+  box-shadow:
+    0 0 0 8px rgba(59, 130, 246, 0.045),
+    0 0 0 16px rgba(167, 139, 250, 0.025);
+}
+
+@media print {
+  .clinic-content::before,
+  .clinic-card::before {
+    display: none !important;
+  }
+
+  .clinic-sidebar {
+    background-image: none;
+  }
+
+  .clinic-empty-icon {
+    box-shadow: none;
+  }
 }

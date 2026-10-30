@@ -68,7 +68,7 @@ export default function Patients() {
             <h2 className="clinic-card-title">Nouveau patient</h2>
           </div>
           <div className="clinic-card-body">
-            <form onSubmit={addPatient} className="clinic-form-grid">
+            <form onSubmit={addPatient} className="clinic-form-grid clinic-form-grid--spacious">
               <div className="clinic-field clinic-col-3">
                 <label htmlFor="first_name">Prénom</label>
                 <input
@@ -119,7 +119,7 @@ export default function Patients() {
                 </select>
               </div>
 
-              <div className="clinic-col-2">
+              <div className="clinic-col-2 clinic-form-submit">
                 <button type="submit" className="clinic-btn clinic-btn-primary clinic-btn-block">
                   Ajouter
                 </button>
