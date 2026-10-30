@@ -28,11 +28,16 @@ export default function Login() {
     <div className="clinic-auth-shell">
       <form onSubmit={handleSubmit} className="clinic-auth-card">
         <div className="clinic-brand">
-          <div className="clinic-brand-mark">D</div>
-          <div>
-            <div className="clinic-brand-name">DentIA</div>
-          </div>
+           <div className="clinic-brand" style={{ marginBottom: 8 }}>
+  <img src={logo} alt="DentIA" className="clinic-brand-mark" /></div>
+          
         </div>
+
+
+ 
+
+
+
 
         <h1>Connexion</h1>
         <p className="clinic-subtitle">Accédez à votre espace praticien.</p>
