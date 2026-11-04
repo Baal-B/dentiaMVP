@@ -1,0 +1,190 @@
+{
+  "name": "DentIA - Veille scientifique PubMed",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        32,
+        0
+      ],
+      "id": "20807d2d-023b-4fab-b51a-04dfb56e27ea",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "db",
+              "value": "pubmed"
+            },
+            {
+              "name": "term",
+              "value": "(dental[tiab] OR dentistry[tiab] OR \"dental implants\"[tiab] OR periodontitis[tiab] OR orthodontics[tiab] OR endodontic*[tiab]) AND (\"artificial intelligence\"[tiab] OR \"deep learning\"[tiab] OR \"machine learning\"[tiab])"
+            },
+            {
+              "name": "retmode",
+              "value": "json"
+            },
+            {
+              "name": "retmax",
+              "value": "10"
+            },
+            {
+              "name": "sort",
+              "value": "pub_date"
+            },
+            {
+              "name": "datetype",
+              "value": "pdat"
+            },
+            {
+              "name": "reldate",
+              "value": "7"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "1624b2c5-8074-4dfd-a18c-6dd97812b951",
+      "name": "Chercher sur PubMed"
+    },
+    {
+      "parameters": {
+        "url": "=https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&retmode=json&id={{ $json.esearchresult.idlist.join(',') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        416,
+        0
+      ],
+      "id": "cd6540e5-80e9-4104-9a37-239f5bc5c17f",
+      "name": "Détails des articles"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Transforme la réponse PubMed (esummary) en une liste HTML lisible pour l'email\nconst data = $input.first().json;\nconst result = data.result || {};\nconst uids = result.uids || [];\n\n// Évite les problèmes si un titre contient < > ou &\nconst esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst articles = uids.map((uid) => {\n  const a = result[uid] || {};\n  return {\n    pmid: uid,\n    titre: String(a.title || 'Sans titre').replace(/\\.$/, ''),\n    revue: a.source || '',\n    date: a.pubdate || '',\n    lien: `https://pubmed.ncbi.nlm.nih.gov/${uid}/`,\n  };\n});\n\n// Aucune publication cette semaine : on arrête ici, aucun email n'est envoyé\nif (articles.length === 0) return [];\n\nconst html = '<ul style=\"padding-left:18px\">' + articles.map((a) =>\n  `<li style=\"margin-bottom:14px\">` +\n  `<a href=\"${a.lien}\"><b>${esc(a.titre)}</b></a><br>` +\n  `<span style=\"color:#555\"><i>${esc(a.revue)}</i>, ${esc(a.date)}</span>` +\n  `</li>`\n).join('') + '</ul>';\n\nreturn [{ json: { nombre: articles.length, articles, html } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        0
+      ],
+      "id": "b2315280-64c0-415d-a8a7-e2d88f34b23b",
+      "name": "Mettre en forme"
+    },
+    {
+      "parameters": {
+        "fromEmail": "DentIA <mariemtoumi44@gmail.com>",
+        "toEmail": "mariemtoumi44@gmail.com",
+        "subject": "=DentIA : veille PubMed de la semaine ({{ $json.nombre }} articles)",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:640px\">\n  <h2>Veille scientifique DentIA</h2>\n  <p>Voici les {{ $json.nombre }} publications les plus récentes sur l'IA en médecine dentaire (7 derniers jours, source : PubMed).</p>\n  {{ $json.html }}\n  <p style=\"color:#888;font-size:12px\">Message automatique envoyé par DentIA.</p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        800,
+        0
+      ],
+      "id": "0604a0c2-84d9-44b5-be9a-404d60c0dd1f",
+      "name": "Envoyer la veille",
+      "webhookId": "d9ef2a71-f4f4-4ef5-91fd-cbe8dc4b204a",
+      "credentials": {
+        "smtp": {
+          "id": "CJFC4OWoSJBkLJD4",
+          "name": "DentIA Gmail SMTP"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Chercher sur PubMed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chercher sur PubMed": {
+      "main": [
+        [
+          {
+            "node": "Détails des articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Détails des articles": {
+      "main": [
+        [
+          {
+            "node": "Mettre en forme",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mettre en forme": {
+      "main": [
+        [
+          {
+            "node": "Envoyer la veille",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "o2iUcjv4OskK8oW8"
+  },
+  "versionId": "dfab0b2c-c2c9-4ca8-b017-b19d57f2ebba",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6b22d0fbdddf935406c3bd2aefcadbea1f9b57e742ab808aabc98319b91e7457"
+  },
+  "nodeGroups": [],
+  "id": "aC2shanXPoGSodAp",
+  "tags": []
+}
