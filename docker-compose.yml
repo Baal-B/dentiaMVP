@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: dentia-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dentia
+      POSTGRES_PASSWORD: dentia_dev_2026
+      POSTGRES_DB: dentia
+      TZ: Africa/Tunis
+      PGTZ: Africa/Tunis
+    ports:
+      - "5433:5432"   # 5433 côté Windows pour ne pas entrer en conflit avec un PostgreSQL déjà installé
+    volumes:
+      - dentia_pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+volumes:
+  dentia_pgdata:
