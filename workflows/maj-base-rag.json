@@ -87,7 +87,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Découpe le XML PubMed (efetch) en documents prêts à être vectorisés\nconst xml = $input.first().json.data || '';\n\n// Retire les balises internes (<i>, <sup>...) puis décode les entités HTML\nconst decode = (s) => s\n  .replace(/<[^>]+>/g, '')\n  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\")\n  .replace(/&#(\\d+);/g, (_, n) => String.fromCharCode(Number(n)))\n  .replace(/&amp;/g, '&')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nconst blocs = xml.match(/<PubmedArticle>[\\s\\S]*?<\\/PubmedArticle>/g) || [];\n\nconst ids = [];\nconst documents = [];\nconst metadatas = [];\nlet sansResume = 0;\n\nfor (const bloc of blocs) {\n  const pmid = (bloc.match(/<PMID[^>]*>(\\d+)<\\/PMID>/) || [])[1];\n  const titre = decode((bloc.match(/<ArticleTitle[^>]*>([\\s\\S]*?)<\\/ArticleTitle>/) || [])[1] || '');\n  const revue = decode((bloc.match(/<Journal>[\\s\\S]*?<Title>([\\s\\S]*?)<\\/Title>/) || [])[1] || '');\n  const annee = (bloc.match(/<PubDate>[\\s\\S]*?<Year>(\\d{4})<\\/Year>/) || [])[1] || '';\n\n  // Un résumé peut être en plusieurs parties (Background, Methods, Results...)\n  const parties = [...bloc.matchAll(/<AbstractText([^>]*)>([\\s\\S]*?)<\\/AbstractText>/g)].map((m) => {\n    const label = (m[1].match(/Label=\"([^\"]*)\"/) || [])[1];\n    const texte = decode(m[2]);\n    return label ? `${label}: ${texte}` : texte;\n  });\n  const resume = parties.join(' ');\n\n  // Sans résumé, il n'y a rien d'utile à indexer\n  if (!pmid || !titre || !resume) {\n    sansResume++;\n    continue;\n  }\n\n  ids.push(`pubmed-${pmid}`);\n  documents.push(`${titre}\\n\\n${resume}`);\n  metadatas.push({\n    source: 'pubmed',\n    pmid,\n    titre,\n    revue,\n    annee,\n    lien: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,\n  });\n}\n\n// Contrôle d'encodage : compte les caractères chinois parasites (accents mal décodés)\nconst encodageSuspect = (documents.join(' ').match(/[\\u4e00-\\u9fff]/g) || []).length;\n\n// Rien à indexer cette semaine : on s'arrête sans erreur\nif (documents.length === 0) return [];\n\nreturn [{ json: { nombre: documents.length, sansResume, encodageSuspect, ids, documents, metadatas } }];"
+        "jsCode": "// Découpe le XML PubMed (efetch) en documents prêts à être vectorisés\n// Les métadonnées suivent le schéma du RAG de l'équipe (doc, title, organization, year, ...)\nconst xml = $input.first().json.data || '';\n\n// Retire les balises internes (<i>, <sup>...) puis décode les entités HTML\nconst decode = (s) => s\n  .replace(/<[^>]+>/g, '')\n  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\")\n  .replace(/&#(\\d+);/g, (_, n) => String.fromCharCode(Number(n)))\n  .replace(/&amp;/g, '&')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nconst blocs = xml.match(/<PubmedArticle>[\\s\\S]*?<\\/PubmedArticle>/g) || [];\n\nconst ids = [];\nconst documents = [];\nconst metadatas = [];\nlet sansResume = 0;\n\nfor (const bloc of blocs) {\n  const pmid = (bloc.match(/<PMID[^>]*>(\\d+)<\\/PMID>/) || [])[1];\n  const titre = decode((bloc.match(/<ArticleTitle[^>]*>([\\s\\S]*?)<\\/ArticleTitle>/) || [])[1] || '');\n  const revue = decode((bloc.match(/<Journal>[\\s\\S]*?<Title>([\\s\\S]*?)<\\/Title>/) || [])[1] || '');\n  const annee = (bloc.match(/<PubDate>[\\s\\S]*?<Year>(\\d{4})<\\/Year>/) || [])[1] || '';\n\n  // Un résumé peut être en plusieurs parties (Background, Methods, Results...)\n  const parties = [...bloc.matchAll(/<AbstractText([^>]*)>([\\s\\S]*?)<\\/AbstractText>/g)].map((m) => {\n    const label = (m[1].match(/Label=\"([^\"]*)\"/) || [])[1];\n    const texte = decode(m[2]);\n    return label ? `${label}: ${texte}` : texte;\n  });\n  const resume = parties.join(' ');\n\n  // Sans résumé, il n'y a rien d'utile à indexer\n  if (!pmid || !titre || !resume) {\n    sansResume++;\n    continue;\n  }\n\n  const doc = `pubmed-${pmid}`;\n  ids.push(`${doc}#p1#c0`);\n  documents.push(`${titre}\\n\\n${resume}`);\n\n  // Chroma n'accepte que des str / int / float / bool : on omet les valeurs vides\n  const meta = {\n    doc,\n    title: titre,\n    source_type: 'pubmed',\n    page: 1,\n    section: 'abstract',\n    chunk_index: 0,\n    pmid,\n    lien: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,\n  };\n  if (revue) meta.organization = revue;\n  if (annee) meta.year = parseInt(annee, 10);\n  metadatas.push(meta);\n}\n\n// Contrôle d'encodage : compte les caractères chinois parasites (accents mal décodés)\nconst encodageSuspect = (documents.join(' ').match(/[\\u4e00-\\u9fff]/g) || []).length;\n\n// Rien à indexer cette semaine : on s'arrête sans erreur\nif (documents.length === 0) return [];\n\nreturn [{ json: { nombre: documents.length, sansResume, encodageSuspect, ids, documents, metadatas } }];;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -104,7 +104,7 @@
         "url": "http://host.docker.internal:11434/api/embed",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"model\": \"nomic-embed-text\", \"input\": $json.documents } }}",
+        "jsonBody": "={{ { \"model\": \"bge-m3\", \"input\": $json.documents } }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -122,7 +122,7 @@
         "url": "http://host.docker.internal:8000/api/v2/tenants/default_tenant/databases/default_database/collections",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{ \"name\": \"dentia_pubmed\", \"get_or_create\": true }",
+        "jsonBody": "{ \"name\": \"denti_pubmed\", \"get_or_create\": true, \"configuration\": { \"hnsw\": { \"space\": \"cosine\" } } }",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -231,7 +231,7 @@
     "availableInMCP": false,
     "errorWorkflow": "o2iUcjv4OskK8oW8"
   },
-  "versionId": "9b2d53d0-b652-4661-8378-78896a66ffbf",
+  "versionId": "aa986b06-fcfc-4ff0-8dcc-43425dcca3db",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "6b22d0fbdddf935406c3bd2aefcadbea1f9b57e742ab808aabc98319b91e7457"
