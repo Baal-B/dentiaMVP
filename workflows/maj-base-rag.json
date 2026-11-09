@@ -1,0 +1,201 @@
+{
+  "name": "DentIA - Mise à jour base RAG",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        32,
+        0
+      ],
+      "id": "a33d6290-c929-4bef-b7d0-378bc265fc52",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "db",
+              "value": "pubmed"
+            },
+            {
+              "name": "term",
+              "value": "(dental[tiab] OR dentistry[tiab] OR \"dental implants\"[tiab] OR periodontitis[tiab] OR orthodontics[tiab] OR endodontic*[tiab]) AND (\"artificial intelligence\"[tiab] OR \"deep learning\"[tiab] OR \"machine learning\"[tiab])"
+            },
+            {
+              "name": "retmode",
+              "value": "json"
+            },
+            {
+              "name": "retmax",
+              "value": "10"
+            },
+            {
+              "name": "sort",
+              "value": "pub_date"
+            },
+            {
+              "name": "datetype",
+              "value": "pdat"
+            },
+            {
+              "name": "reldate",
+              "value": "7"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "151f6c49-eeea-4d18-ad08-87e2553f5e92",
+      "name": "Chercher sur PubMed"
+    },
+    {
+      "parameters": {
+        "url": "=https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&retmode=xml&id={{ $json.esearchresult.idlist.join(',') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        432,
+        0
+      ],
+      "id": "80fdc8f2-94b3-497c-ac31-8d64efaa1550",
+      "name": "Récupérer les résumés"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8002/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"articles\": $json.articles } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ],
+      "id": "5668db9e-7430-4523-bd48-5aa95fd3543f",
+      "name": "Envoyer à /ingest",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "KygT5ibbEognXROx",
+          "name": "DentIA RAG admin key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const xml = String($input.first().json.data || '');\n\nconst decode = (s) => String(s || '')\n  .replace(/<[^>]+>/g, '')\n  .replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n  .replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\")\n  .replace(/&#x([0-9a-fA-F]+);/g, (m, h) => String.fromCodePoint(parseInt(h, 16)))\n  .replace(/&#(\\d+);/g, (m, d) => String.fromCodePoint(Number(d)))\n  .replace(/&amp;/g, '&')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nconst first = (re, s) => { const m = re.exec(s); return m ? m[1] : ''; };\nconst titleCase = (s) => s.toLowerCase().replace(/\\b\\w/g, (c) => c.toUpperCase());\n\nconst blocks = xml.match(/<PubmedArticle[\\s>][\\s\\S]*?<\\/PubmedArticle>/g) || [];\n\nconst articles = blocks.map((b) => {\n  const pmid = first(/<PMID[^>]*>(\\d+)<\\/PMID>/, b);\n\n  const parts = [];\n  for (const m of b.matchAll(/<AbstractText([^>]*)>([\\s\\S]*?)<\\/AbstractText>/g)) {\n    const t = decode(m[2]);\n    const label = first(/Label=\"([^\"]*)\"/, m[1]);\n    if (t) parts.push(label ? `${titleCase(label)}: ${t}` : t);\n  }\n\n  const names = [];\n  const authorList = first(/<AuthorList[^>]*>([\\s\\S]*?)<\\/AuthorList>/, b);\n  for (const m of authorList.matchAll(/<Author[\\s>][\\s\\S]*?<\\/Author>/g)) {\n    const last = decode(first(/<LastName>([\\s\\S]*?)<\\/LastName>/, m[0]));\n    const ini = decode(first(/<Initials>([\\s\\S]*?)<\\/Initials>/, m[0]));\n    if (last) names.push(`${last} ${ini}`.trim());\n  }\n\n  const pubDate = first(/<PubDate>([\\s\\S]*?)<\\/PubDate>/, b);\n  const year = first(/<Year>(\\d{4})<\\/Year>/, pubDate) || first(/(\\d{4})/, pubDate);\n\n  return {\n    pmid,\n    title: decode(first(/<ArticleTitle[^>]*>([\\s\\S]*?)<\\/ArticleTitle>/, b)),\n    abstract: parts.join(' '),\n    journal: decode(first(/<Journal>[\\s\\S]*?<Title>([\\s\\S]*?)<\\/Title>/, b)),\n    year: year ? parseInt(year, 10) : 0,\n    authors: names.slice(0, 3).join(', ') + (names.length > 3 ? ' et al.' : ''),\n    doi: decode(first(/<ArticleId IdType=\"doi\">([^<]+)<\\/ArticleId>/, b)),\n    url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,\n  };\n}).filter((a) => a.pmid && a.title && a.abstract.length >= 150);\n\nif (articles.length === 0) return [];\n\nconst out = [];\nfor (let i = 0; i < articles.length; i += 25) {\n  out.push({ json: { nombre: articles.slice(i, i + 25).length, articles: articles.slice(i, i + 25) } });\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        0
+      ],
+      "id": "ef274c52-5b89-4132-b517-b89c98bbce49",
+      "name": "Préparer les articles"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Chercher sur PubMed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chercher sur PubMed": {
+      "main": [
+        [
+          {
+            "node": "Récupérer les résumés",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Récupérer les résumés": {
+      "main": [
+        [
+          {
+            "node": "Préparer les articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envoyer à /ingest": {
+      "main": [
+        []
+      ]
+    },
+    "Préparer les articles": {
+      "main": [
+        [
+          {
+            "node": "Envoyer à /ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true,
+    "errorWorkflow": "o2iUcjv4OskK8oW8"
+  },
+  "versionId": "671d4e2a-cab0-4e22-82e7-0ae4b6c3f8f5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6b22d0fbdddf935406c3bd2aefcadbea1f9b57e742ab808aabc98319b91e7457"
+  },
+  "nodeGroups": [],
+  "id": "yxcnIlHAWmat1kvo",
+  "tags": []
+}
