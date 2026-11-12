@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Printer } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { api } from '../../lib/api'
 import { useAuth } from '../auth/AuthProvider'
 import { fmtDate, fullName } from '../../lib/format'
 import { KINDS } from '../../lib/labels'
 import { labelFr, pct } from '../../lib/findings'
 import { REPORT_DISCLAIMER } from '../../lib/report'
 
-const snapshot = (title, content) => JSON.stringify([title, content])
+const snapshot = (title, content, citations) => JSON.stringify([title, content, citations])
+const SECTION_LABEL = { observations: 'Observations', differential: 'Diagnostic différentiel', plan: 'Plan de traitement' }
 
 function Section({ title, hint, value, onChange, readOnly }) {
   return (
@@ -45,8 +47,10 @@ export default function ReportEditor() {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [citations, setCitations] = useState([])
+  const [notes, setNotes] = useState([])
 
-  const dirty = !!content && snapshot(title, content) !== saved
+  const dirty = !!content && snapshot(title, content, citations) !== saved
 
   async function load() {
     const { data: r, error: e } = await supabase.from('reports').select('*').eq('id', id).maybeSingle()
@@ -55,7 +59,8 @@ export default function ReportEditor() {
     setReport(r)
     setTitle(r.title)
     setContent(r.content)
-    setSaved(snapshot(r.title, r.content))
+    setCitations(r.citations ?? [])
+    setSaved(snapshot(r.title, r.content, r.citations ?? []))
     const { data: p } = await supabase
       .from('patients').select('id, first_name, last_name').eq('id', r.patient_id).maybeSingle()
     setPatient(p)
@@ -78,14 +83,39 @@ export default function ReportEditor() {
     setBusy('save'); setError(''); setNotice('')
     const { data, error } = await supabase
       .from('reports')
-      .update({ title, content, updated_at: new Date().toISOString() })
+      .update({ title, content, citations, updated_at: new Date().toISOString() })
       .eq('id', id).eq('status', 'draft')
       .select('id')
     setBusy('')
     if (error) return setError(error.message)
     if (!data?.length) return setError("Enregistrement refusé : le rapport n'est plus un brouillon.")
-    setSaved(snapshot(title, content))
+    setSaved(snapshot(title, content, citations))
     setNotice('Brouillon enregistré.')
+  }
+
+  async function draftWithAI() {
+    const empty = ['observations', 'differential', 'plan'].filter((k) => !(content[k] ?? '').trim())
+    if (empty.length === 0) {
+      setNotice('Toutes les sections sont déjà rédigées : rien à générer.')
+      return
+    }
+    setBusy('draft'); setError(''); setNotice(''); setNotes([])
+    try {
+      const d = await api('/reports/draft', {
+        method: 'POST',
+        body: JSON.stringify({ report_id: id, sections: empty }),
+      })
+      setContent((c) => {
+        const next = { ...c, meta: { ...c.meta, ai_draft: { model: d.model, generated_at: new Date().toISOString() } } }
+        for (const k of empty) if (d[k] && !(c[k] ?? '').trim()) next[k] = d[k]   // never overwrite typed text
+        return next
+      })
+      setCitations(d.citations)
+      setNotes(d.notes ?? [])
+    } catch (e) {
+      setError(e.message)
+    }
+    setBusy('')
   }
 
   async function sign() {
@@ -102,6 +132,7 @@ export default function ReportEditor() {
       .from('reports')
       .update({
         title,
+        citations,
         content: signedContent,
         status: 'signed',
         signed_at: new Date().toISOString(),
@@ -130,7 +161,6 @@ export default function ReportEditor() {
 
   const signed = report.status === 'signed'
   const meta = content.meta ?? {}
-  const citations = report.citations ?? []
 
   return (
     <div className="clinic-report">
@@ -163,6 +193,9 @@ export default function ReportEditor() {
             </button>
           ) : (
             <>
+              <button className="clinic-btn clinic-btn-ghost" onClick={draftWithAI} disabled={busy === 'draft'}>
+                {busy === 'draft' ? 'Rédaction…' : 'Générer un brouillon IA'}
+              </button>
               <button className="clinic-btn clinic-btn-ghost" onClick={save} disabled={!dirty || busy === 'save'}>
                 {busy === 'save' ? 'Enregistrement…' : 'Enregistrer'}
               </button>
@@ -176,6 +209,21 @@ export default function ReportEditor() {
 
       {error && <p className="clinic-error">{error}</p>}
       {notice && <p className="clinic-success">{notice}</p>}
+
+      {notes.length > 0 && (
+        <div className="clinic-notice"><strong>Brouillon IA :</strong><span>{notes.join(' ')}</span></div>
+      )}
+      {!signed && content.meta?.ai_draft && (
+        <div className="clinic-notice">
+          <strong>Pré-rempli automatiquement ({content.meta.ai_draft.model || 'sans modèle'}).</strong>
+          <span>Relisez et corrigez chaque section avant de signer. Les [n] renvoient à la liste des sources en bas.</span>
+        </div>
+      )}
+      {signed && content.meta?.ai_draft && (
+        <p style={{ color: 'var(--clinic-muted)', fontSize: 14 }}>
+          Rédigé avec l'assistance d'une IA, relu et signé par le praticien.
+        </p>
+      )}
 
       {(meta.mock_vision || meta.mock_sources) && (
         <div className="clinic-notice">

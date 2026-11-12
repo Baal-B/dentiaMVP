@@ -9,6 +9,8 @@ import { fmtDate, fullName } from '../../lib/format'
 import { labelFr, pct } from '../../lib/findings'
 import FindingsViewer from './FindingsViewer'
 import AssistantPanel from './AssistantPanel'
+import { useTopK } from '../../lib/topk'
+import TopKSelect from './TopKSelect'
 
 const KINDS = { panoramic: 'Panoramique', periapical: 'Rétro-alvéolaire', bitewing: 'Bite-wing' }
 
@@ -27,6 +29,8 @@ export default function Review() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [topK, setTopK] = useTopK()
+
 
   async function load() {
     const { data: r, error: e } = await supabase
@@ -82,13 +86,13 @@ export default function Review() {
     setBusy('')
   }
 
-  async function askAssistant() {
+    async function askAssistant() {
     setError('')
     setBusy('assistant')
     try {
       await api('/assistant', {
         method: 'POST',
-        body: JSON.stringify({ question: rg.symptoms, patient_id: rg.patient_id, radiograph_id: id }),
+        body: JSON.stringify({ question: rg.symptoms, patient_id: rg.patient_id, radiograph_id: id, top_k: topK }),
       })
     } catch (e) {
       setError(e.message)
@@ -335,6 +339,7 @@ export default function Review() {
         <section className="clinic-card" style={{ marginTop: 24 }}>
           <div className="clinic-card-body">
             <p style={{ marginTop: 0 }}>Aucune recherche bibliographique pour ces symptômes.</p>
+            <TopKSelect value={topK} onChange={setTopK} />
             <button className="clinic-btn clinic-btn-ghost" onClick={askAssistant} disabled={busy === 'assistant'}>
               {busy === 'assistant' ? 'Recherche…' : 'Rechercher dans la littérature'}
             </button>

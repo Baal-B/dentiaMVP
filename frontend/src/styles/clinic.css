@@ -963,6 +963,15 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 .report-text { white-space: pre-wrap; margin: 0; }
 .report-title-input { font-size: 24px; font-weight: 700; }
 
+.clinic-report {
+  max-width: 1120px;
+}
+
+.clinic-report .report-block textarea.clinic-input {
+  min-height: 190px;
+  line-height: 1.6;
+}
+
 @media print {
   .clinic-sidebar, .no-print { display: none !important; }
   .clinic-shell { display: block; }

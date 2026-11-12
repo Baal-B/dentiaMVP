@@ -200,3 +200,68 @@ def finalize(answer: str, n_sources: int) -> tuple[str, list[int]]:
     mapping = {old: new for new, old in enumerate(order, 1)}
     clean = CITE.sub(lambda m: f"[{mapping[int(m.group(1).strip())]}]", answer)
     return clean.strip(), order
+
+
+
+
+def _loads(text: str) -> dict:
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
+    return json.loads(text)
+
+
+def _to_gemini(s):
+    """Gemini's schema dialect wants upper-case type names."""
+    if isinstance(s, dict):
+        return {k: (v.upper() if k == "type" and isinstance(v, str) else _to_gemini(v)) for k, v in s.items()}
+    if isinstance(s, list):
+        return [_to_gemini(x) for x in s]
+    return s
+
+
+def call_json(system: str, user: str, schema: dict) -> dict:
+    """Generic structured call (used by the report draft). Returns the parsed JSON object."""
+    if PROVIDER == "ollama":
+        r = httpx.post(
+            f"{OLLAMA_URL}/api/chat",
+            json={
+                "model": MODEL, "stream": False, "format": schema, "keep_alive": "30m",
+                "options": {"temperature": 0.2},
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            },
+            timeout=300,
+        )
+        r.raise_for_status()
+        return _loads(r.json()["message"]["content"])
+    if PROVIDER == "gemini":
+        r = httpx.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent",
+            headers={"x-goog-api-key": GEMINI_KEY},
+            json={
+                "systemInstruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": [{"text": user}]}],
+                "generationConfig": {
+                    "responseMimeType": "application/json",
+                    "responseSchema": _to_gemini(schema),
+                    "maxOutputTokens": 3000, "temperature": 0.2,
+                },
+            },
+            timeout=90,
+        )
+        r.raise_for_status()
+        return _loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
+    if PROVIDER == "anthropic":
+        from anthropic import Anthropic
+
+        tool = {"name": "submit", "description": "Submit the result.", "input_schema": schema}
+        msg = Anthropic(timeout=60.0, max_retries=1).messages.create(
+            model=MODEL, max_tokens=1500, system=system,
+            messages=[{"role": "user", "content": user}],
+            tools=[tool], tool_choice={"type": "tool", "name": "submit"},
+        )
+        for block in msg.content:
+            if block.type == "tool_use":
+                return dict(block.input)
+        raise ValueError("model returned no structured answer")
+    raise ValueError(f"unknown LLM_PROVIDER {PROVIDER!r}")

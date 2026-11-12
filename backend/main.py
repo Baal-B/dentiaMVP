@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field
 from supabase import create_client
 import logging
 from llm import ENABLED as LLM_ENABLED, MODEL as LLM_MODEL, finalize, generate
+from typing import Literal
+from report_agent import build_draft
 
 
 
@@ -159,6 +161,7 @@ class AssistantRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
     patient_id: str
     radiograph_id: str | None = None
+    top_k: int = Field(default=3, ge=1, le=8)
 
 
 @app.post("/assistant")
@@ -176,7 +179,7 @@ def ask_assistant(body: AssistantRequest, user=Depends(current_user)):
             raise HTTPException(404, "Radiograph not found")
 
     try:
-        r = httpx.post(f"{RAG_URL}/search", json={"query": body.question, "top_k": 3}, timeout=30)
+        r = httpx.post(f"{RAG_URL}/search", json={"query": body.question, "top_k": body.top_k}, timeout=30)
         r.raise_for_status()
         data = r.json()
     except httpx.HTTPError:
@@ -266,3 +269,22 @@ def ask_assistant(body: AssistantRequest, user=Depends(current_user)):
         row["radiograph_id"] = body.radiograph_id
     saved = sb.table("assistant_queries").insert(row).execute()
     return saved.data[0]
+
+class DraftRequest(BaseModel):
+    report_id: str
+    sections: list[Literal["observations", "differential", "plan"]]
+
+
+@app.post("/reports/draft")
+def draft_report(body: DraftRequest, user=Depends(current_user)):
+    rep = (sb.table("reports").select("id, status, content, citations")
+           .eq("id", body.report_id).eq("doctor_id", user.id).limit(1).execute())
+    if not rep.data:
+        raise HTTPException(404, "Report not found")
+    report = rep.data[0]
+    if report["status"] != "draft":
+        raise HTTPException(409, "A signed report cannot be changed")
+    try:
+        return build_draft(report, body.sections, RAG_URL)   # a proposal: nothing is saved here
+    except httpx.HTTPError:
+        raise HTTPException(502, "Literature search unavailable")

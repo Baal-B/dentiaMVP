@@ -6,6 +6,8 @@ import { useAuth } from '../auth/AuthProvider'
 import { fmtDate, fullName } from '../../lib/format'
 import AssistantPanel from './AssistantPanel'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useTopK } from '../../lib/topk'
+import TopKSelect from './TopKSelect'
 
 
 const MAX_SIZE = 30 * 1024 * 1024 // matches the bucket limit
@@ -36,6 +38,7 @@ export default function Analysis() {
   const [step, setStep] = useState('')
   const [error, setError] = useState('')
   const [answer, setAnswer] = useState([])
+  const [topK, setTopK] = useTopK()
 
   async function load() {
     const { data: p, error: e1 } = await supabase
@@ -123,9 +126,9 @@ export default function Analysis() {
     if (symptoms) {
       setStep('Recherche dans la littérature…')
       try {
-        query = await api('/assistant', {
+          query = await api('/assistant', {
           method: 'POST',
-          body: JSON.stringify({ question: symptoms, patient_id: form.patient_id, radiograph_id: radiographId }),
+          body: JSON.stringify({ question: symptoms, patient_id: form.patient_id, radiograph_id: radiographId, top_k: topK }),
         })
       } catch (err) {
         if (!radiographId) setError(err.message)
@@ -201,6 +204,10 @@ export default function Analysis() {
                 <small style={{ color: 'var(--clinic-muted)' }}>
   N'indiquez ni nom, ni date de naissance, ni coordonnées : ce texte est envoyé à un service d'IA externe.
 </small>
+              </div>
+
+              <div className="clinic-col-12">
+                <TopKSelect value={topK} onChange={setTopK} />
               </div>
 
               <div className="clinic-col-12">
