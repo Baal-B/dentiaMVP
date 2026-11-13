@@ -1,0 +1,1 @@
+alter table radiographs add column if not exists symptoms text not null default '';

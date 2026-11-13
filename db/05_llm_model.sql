@@ -1,0 +1,1 @@
+alter table assistant_queries add column if not exists llm_model text;  -- null = raw passages, no AI answer
