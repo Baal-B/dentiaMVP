@@ -12,6 +12,8 @@ import Reports from './features/reports/Reports'
 import ReportEditor from './features/reports/ReportEditor'
 import Notifications from './features/notifications/Notifications'
 import Settings from './features/settings/Settings'
+import Prescriptions from './features/prescriptions/Prescriptions'
+import PrescriptionEditor from './features/prescriptions/PrescriptionEditor'
 
 
 
@@ -32,6 +34,8 @@ export default function App() {
           <Route path="reports/:id" element={<ReportEditor />} />  
           <Route path="notifications" element={<Notifications />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="prescriptions" element={<Prescriptions />} />
+          <Route path="prescriptions/:id" element={<PrescriptionEditor />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

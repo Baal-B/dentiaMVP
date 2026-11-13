@@ -143,6 +143,7 @@ export default function PatientFile() {
           <Link to={`/analysis?patient=${id}`} className="clinic-btn clinic-btn-primary">Nouvelle analyse</Link>
           <Link to={`/appointments?patient=${id}`} className="clinic-btn clinic-btn-ghost">Nouveau rendez-vous</Link>
           {!draft && <button className="clinic-btn clinic-btn-ghost" onClick={startEdit}>Modifier</button>}
+          <Link to={`/prescriptions?patient=${id}`} className="clinic-btn clinic-btn-ghost">Nouvelle ordonnance</Link>
         </div>
       </div>
 

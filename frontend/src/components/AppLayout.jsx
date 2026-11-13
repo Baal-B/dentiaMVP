@@ -7,7 +7,7 @@ import logo from '../assets/logo.png'
 
 import {
   LayoutDashboard, Users, Scan, CalendarDays,
-  MessageSquare, FileText, Bell, Settings as SettingsIcon, LogOut,
+  MessageSquare, FileText, Bell, Settings as SettingsIcon, LogOut,Pill
 } from 'lucide-react'
 import { useUnread } from '../features/notifications/useUnread'
 
@@ -17,6 +17,7 @@ const nav = [
   { to: '/analysis', label: 'Nouvelle analyse', icon: Scan },
   { to: '/appointments', label: 'Rendez-vous', icon: CalendarDays },
   { to: '/reports', label: 'Rapports', icon: FileText },
+  { to: '/prescriptions', label: 'Ordonnances', icon: Pill },
   { to: '/notifications', label: 'Notifications', icon: Bell, badge: true },
 { to: '/settings', label: 'Paramètres', icon: SettingsIcon },
 ]
