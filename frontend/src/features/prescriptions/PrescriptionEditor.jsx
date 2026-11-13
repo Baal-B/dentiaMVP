@@ -4,8 +4,9 @@ import { ArrowLeft, Printer, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { fmtDate, fullName } from '../../lib/format'
-import { allergyWarnings } from '../../lib/rx'
+import { allergyWarnings, norm } from '../../lib/rx'
 import MedSearch from './MedSearch'
+
 
 // typing helpers only: they contain no amounts and no clinical advice
 const FREQ = ['matin et soir', 'matin, midi et soir', 'pendant les repas', 'en cas de douleur', 'au coucher']
@@ -29,30 +30,32 @@ function Sheet({ content, signedAt }) {
   const pa = m.patient ?? {}
   return (
     <section className="clinic-card rx-sheet">
+      {pr.practice_name && <div className="rx-cabinet">{pr.practice_name}</div>}
+
       <header className="rx-head">
-        <div>
-          <strong>{pr.name || 'Praticien'}</strong>
-          <div>{pr.specialty}</div>
-          {pr.license_number && <div>N° d'ordre : {pr.license_number}</div>}
+        <div className="rx-col">
+          <strong className="rx-doctor">{pr.full_name || pr.name}</strong>
+          {pr.title_fr && <div>{pr.title_fr}</div>}
+          {pr.extra_fr && <div className="rx-small">{pr.extra_fr}</div>}
         </div>
-        <div className="rx-head-right">
-          {pr.practice_name && <strong>{pr.practice_name}</strong>}
-          {pr.practice_address && <div style={{ whiteSpace: 'pre-line' }}>{pr.practice_address}</div>}
-          {pr.practice_phone && <div>Tél. {pr.practice_phone}</div>}
+        <div className="rx-col rx-ar" dir="rtl" lang="ar">
+          <strong className="rx-doctor">{pr.name_ar}</strong>
+          {pr.title_ar && <div>{pr.title_ar}</div>}
+          {pr.extra_ar && <div className="rx-small">{pr.extra_ar}</div>}
         </div>
       </header>
 
-      <div className="rx-meta">
-        <div>Patient : <strong>{pa.name}</strong>{pa.birth_date ? `, né(e) le ${fmtDate(pa.birth_date)}` : ''}</div>
-        <div>Le {fmtDate(signedAt)}</div>
-      </div>
-
       <h2 className="rx-title">Ordonnance</h2>
+
+      <div className="rx-meta">
+  <div>Nom et prénom : <strong>{pa.name}</strong>{pa.birth_date ? `, né(e) le ${fmtDate(pa.birth_date)}` : ''}</div>
+</div>
+
       <ol className="rx-lines">
         {content.lines.map((l) => (
           <li key={l.key}>
             <strong>{l.name}</strong>
-            {l.form && <span className="rx-muted"> ({l.form})</span>}
+            {l.form && !norm(l.name).includes(norm(l.form)) && <span className="rx-muted"> ({l.form})</span>}
             <div>{[l.posology, l.duration && `pendant ${l.duration}`].filter(Boolean).join(', ')}</div>
             {l.note && <div className="rx-muted">{l.note}</div>}
           </li>
@@ -60,7 +63,18 @@ function Sheet({ content, signedAt }) {
       </ol>
       {content.notes && <p style={{ whiteSpace: 'pre-wrap' }}>{content.notes}</p>}
 
-      <div className="rx-sign">Signature et cachet<br /><small className="rx-muted">Signé électroniquement par {m.signed_by}</small></div>
+<div className="rx-sign">
+  Signature et cachet
+  <div className="rx-sign-date">Le {fmtDate(signedAt)}</div>
+</div>      <footer className="rx-foot">
+        <div className="rx-foot-cols">
+          <div style={{ whiteSpace: 'pre-line' }}>{pr.practice_address}</div>
+          <div dir="rtl" lang="ar" style={{ whiteSpace: 'pre-line' }}>{pr.practice_address_ar}</div>
+        </div>
+        <div className="rx-foot-line">
+          {[pr.practice_phone && `Tél. ${pr.practice_phone}`, pr.practice_email].filter(Boolean).join('  ·  ')}
+        </div>
+      </footer>
     </section>
   )
 }
@@ -93,9 +107,7 @@ export default function PrescriptionEditor() {
       supabase.from('patients').select('id, first_name, last_name, birth_date, medical_history')
         .eq('id', r.patient_id).maybeSingle(),
       supabase.from('rx_templates').select('id, name, lines').order('name'),
-      supabase.from('profiles')
-        .select('full_name, specialty, license_number, practice_name, practice_address, practice_phone')
-        .eq('id', user.id).single(),
+      supabase.from('profiles').select('*').eq('id', user.id).single(),
     ])
     setPatient(p.data); setTemplates(t.data ?? []); setPro(pf.data)
     setLoading(false)
@@ -156,8 +168,9 @@ export default function PrescriptionEditor() {
     setError('')
     if (content.lines.length === 0) return setError('Ajoutez au moins un médicament.')
     if (content.lines.some((l) => !l.name.trim())) return setError("Une ligne n'a pas de nom de médicament.")
-    if (!pro?.license_number &&
-        !window.confirm("Votre numéro d'ordre n'est pas renseigné (Paramètres). Signer quand même ?")) return
+    if (!pro?.full_name?.trim() || pro.full_name.includes('@'))
+      return setError('Renseignez votre nom dans Paramètres avant de signer.')
+    
     if (warnings.length &&
         !window.confirm('Des alertes sont affichées sur cette ordonnance. Signer quand même ?')) return
     if (!window.confirm('Signer cette ordonnance ? Elle ne pourra plus être modifiée ni supprimée.')) return
@@ -166,13 +179,9 @@ export default function PrescriptionEditor() {
     const signedContent = {
       ...content,
       meta: {
-        prescriber: {
-          name: pro?.full_name || user.email, specialty: 'Chirurgien-dentiste',
-          license_number: pro?.license_number ?? '', practice_name: pro?.practice_name ?? '',
-          practice_address: pro?.practice_address ?? '', practice_phone: pro?.practice_phone ?? '',
-        },
+        prescriber: { ...pro },
         patient: { name: fullName(patient), birth_date: patient.birth_date },
-        signed_by: pro?.full_name || user.email,
+        signed_by: pro.full_name,
       },
     }
     const { data, error } = await supabase

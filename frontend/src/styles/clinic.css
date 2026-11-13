@@ -1311,10 +1311,37 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 }
 .clinic-warn ul { margin: 8px 0; padding-left: 20px; }
 
-.rx-sheet { padding: 36px 40px; max-width: 800px; }
-.rx-head { display: flex; justify-content: space-between; gap: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--clinic-text); }
-.rx-head-right { text-align: right; }
-.rx-meta { display: flex; justify-content: space-between; margin: 20px 0; }
-.rx-title { text-align: center; margin: 24px 0; letter-spacing: 0.1em; text-transform: uppercase; font-size: 20px; }
+.rx-sheet { display: flex; flex-direction: column; min-height: 760px; padding: 32px 40px; max-width: 800px; }
+.rx-cabinet { text-align: center; font-weight: 700; margin-bottom: 10px; }
+.rx-head { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding-bottom: 14px; border-bottom: 2px solid var(--clinic-text); }
+.rx-col { display: grid; gap: 2px; align-content: start; }
+.rx-ar { text-align: right; }
+.rx-doctor { font-size: 18px; }
+.rx-small { font-size: 14px; color: var(--clinic-muted); }
+.rx-title { text-align: center; margin: 22px 0 14px; letter-spacing: 0.1em; text-transform: uppercase; font-size: 20px; }
+.rx-meta { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
 .rx-lines { padding-left: 22px; display: grid; gap: 14px; }
-.rx-sign { margin-top: 60px; text-align: right; }
+.rx-sign { margin-top: 40px; text-align: right; min-height: 110px; }.rx-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--clinic-border-strong); font-size: 14px; }
+.rx-sign-date { margin-top: 4px; font-size: 14px; color: var(--clinic-muted); }
+.rx-foot-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.rx-foot-line { text-align: center; margin-top: 6px; font-weight: 600; }
+
+@media print {
+  @page { size: A4; margin: 0; }   /* margin 0 also removes the browser's URL/date header and footer */
+  html, body { background: #fff !important; }
+  body * { visibility: hidden; }
+  .rx-sheet, .rx-sheet * { visibility: visible; }
+  .rx-sheet {
+    position: absolute; left: 0; top: 0;
+    box-sizing: border-box; width: 210mm; height: 296mm; max-width: none;
+    padding: 16mm 18mm; margin: 0;
+    border: none; border-radius: 0; box-shadow: none; background: #fff;
+    font-size: 12pt; line-height: 1.5;
+  }
+  .rx-doctor { font-size: 15pt; }
+  .rx-small { font-size: 10pt; }
+  .rx-title { font-size: 16pt; }
+}
+
+.clinic-pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px; color: var(--clinic-muted); }
+.rx-summary { color: var(--clinic-muted); max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

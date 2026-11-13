@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase'
 import { fmtDate, fmtDateTime } from '../../lib/format'
 import { KINDS, statusLabel, APPT_STATUS, REPORT_STATUS } from '../../lib/labels'
 import AssistantPanel from '../analysis/AssistantPanel'
+import Pager from '../../components/Pager'
+import { usePager } from '../../lib/usePager'
 
 function ageOf(birth) {
   if (!birth) return null
@@ -23,12 +25,20 @@ export default function PatientFile() {
   const [thumbs, setThumbs] = useState({})
   const [appts, setAppts] = useState([])
   const [reports, setReports] = useState([])
+  const [prescriptions, setPrescriptions] = useState([])
   const [queries, setQueries] = useState([])
   const [openQuery, setOpenQuery] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [draft, setDraft] = useState(null) // null = not editing
   const [saving, setSaving] = useState(false)
+
+  // hooks: must stay above the early returns below
+  const radioPager = usePager(radiographs, 6)
+  const apptPager = usePager(appts, 5)
+  const reportPager = usePager(reports, 5)
+  const rxPager = usePager(prescriptions, 5)
+  const queryPager = usePager(queries, 5)
 
   async function load() {
     const { data: p, error: e } = await supabase
@@ -37,27 +47,32 @@ export default function PatientFile() {
     if (!p) { setLoading(false); return } // not found, or not yours (RLS)
     setPatient(p)
 
-    const [r, a, rp, q] = await Promise.all([
+    const [r, a, rp, q, px] = await Promise.all([
       supabase.from('radiographs')
         .select('id, kind, taken_at, created_at, storage_path, symptoms')
         .eq('patient_id', id).order('created_at', { ascending: false }),
       supabase.from('appointments')
         .select('id, starts_at, status, reason')
-        .eq('patient_id', id).order('starts_at', { ascending: false }).limit(8),
+        .eq('patient_id', id).order('starts_at', { ascending: false }),
       supabase.from('reports')
         .select('id, title, status, created_at, signed_at')
         .eq('patient_id', id).order('created_at', { ascending: false }),
       supabase.from('assistant_queries')
-.select('id, question, answer, citations, insufficient_evidence, llm_model, created_at')        .eq('patient_id', id).is('radiograph_id', null).order('created_at', { ascending: false }),
+        .select('id, question, answer, citations, insufficient_evidence, llm_model, created_at')
+        .eq('patient_id', id).is('radiograph_id', null).order('created_at', { ascending: false }),
+      supabase.from('prescriptions')
+        .select('id, status, created_at, signed_at, content')
+        .eq('patient_id', id).order('created_at', { ascending: false }),
     ])
 
-    const failed = [r, a, rp, q].find((x) => x.error)
+    const failed = [r, a, rp, q, px].find((x) => x.error)
     if (failed) { setError(failed.error.message); setLoading(false); return }
 
     setRadiographs(r.data)
     setAppts(a.data)
     setReports(rp.data)
     setQueries(q.data)
+    setPrescriptions(px.data)
 
     if (r.data.length) {
       const [an, signed] = await Promise.all([
@@ -142,8 +157,8 @@ export default function PatientFile() {
         <div className="clinic-actions">
           <Link to={`/analysis?patient=${id}`} className="clinic-btn clinic-btn-primary">Nouvelle analyse</Link>
           <Link to={`/appointments?patient=${id}`} className="clinic-btn clinic-btn-ghost">Nouveau rendez-vous</Link>
-          {!draft && <button className="clinic-btn clinic-btn-ghost" onClick={startEdit}>Modifier</button>}
           <Link to={`/prescriptions?patient=${id}`} className="clinic-btn clinic-btn-ghost">Nouvelle ordonnance</Link>
+          {!draft && <button className="clinic-btn clinic-btn-ghost" onClick={startEdit}>Modifier</button>}
         </div>
       </div>
 
@@ -226,25 +241,28 @@ export default function PatientFile() {
             <Link to={`/analysis?patient=${id}`}>Lancer une première analyse</Link>
           </div>
         ) : (
-          <div className="clinic-card-body clinic-thumbs">
-            {radiographs.map((r) => {
-              const s = statusLabel(analyses[r.id])
-              return (
-                <Link key={r.id} to={`/analysis/${r.id}`} className="clinic-thumb">
-                  {thumbs[r.storage_path] ? (
-                    <img src={thumbs[r.storage_path]} alt="" loading="lazy" />
-                  ) : (
-                    <div className="clinic-thumb-empty">Aperçu indisponible</div>
-                  )}
-                  <div className="clinic-thumb-meta">
-                    <strong>{KINDS[r.kind]}</strong>
-                    <span style={{ color: 'var(--clinic-muted)' }}>{fmtDate(r.taken_at ?? r.created_at)}</span>
-                    <span className={`clinic-pill ${s.cls}`}>{s.text}</span>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
+          <>
+            <div className="clinic-card-body clinic-thumbs">
+              {radioPager.slice.map((r) => {
+                const s = statusLabel(analyses[r.id])
+                return (
+                  <Link key={r.id} to={`/analysis/${r.id}`} className="clinic-thumb">
+                    {thumbs[r.storage_path] ? (
+                      <img src={thumbs[r.storage_path]} alt="" loading="lazy" />
+                    ) : (
+                      <div className="clinic-thumb-empty">Aperçu indisponible</div>
+                    )}
+                    <div className="clinic-thumb-meta">
+                      <strong>{KINDS[r.kind]}</strong>
+                      <span style={{ color: 'var(--clinic-muted)' }}>{fmtDate(r.taken_at ?? r.created_at)}</span>
+                      <span className={`clinic-pill ${s.cls}`}>{s.text}</span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+            <Pager pager={radioPager} />
+          </>
         )}
       </section>
 
@@ -258,20 +276,23 @@ export default function PatientFile() {
           {appts.length === 0 ? (
             <div className="clinic-empty">Aucun rendez-vous.</div>
           ) : (
-            <table className="clinic-table">
-              <tbody>
-                {appts.map((a) => {
-                  const s = APPT_STATUS[a.status]
-                  return (
-                    <tr key={a.id}>
-                      <td>{fmtDateTime(a.starts_at)}</td>
-                      <td style={{ color: 'var(--clinic-muted)' }}>{a.reason || '—'}</td>
-                      <td><span className={`clinic-pill ${s.cls}`}>{s.text}</span></td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <>
+              <table className="clinic-table">
+                <tbody>
+                  {apptPager.slice.map((a) => {
+                    const s = APPT_STATUS[a.status]
+                    return (
+                      <tr key={a.id}>
+                        <td>{fmtDateTime(a.starts_at)}</td>
+                        <td style={{ color: 'var(--clinic-muted)' }}>{a.reason || '—'}</td>
+                        <td><span className={`clinic-pill ${s.cls}`}>{s.text}</span></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <Pager pager={apptPager} />
+            </>
           )}
         </section>
 
@@ -280,30 +301,66 @@ export default function PatientFile() {
             <h2 className="clinic-card-title">Rapports</h2>
           </div>
           {reports.length === 0 ? (
-            <div className="clinic-empty">
-              Aucun rapport.<br />
-              
-            </div>
+            <div className="clinic-empty">Aucun rapport.</div>
           ) : (
+            <>
+              <table className="clinic-table">
+                <tbody>
+                  {reportPager.slice.map((r) => {
+                    const s = REPORT_STATUS[r.status]
+                    return (
+                      <tr key={r.id}>
+                        <td className="clinic-patient-name">
+                          <Link to={`/reports/${r.id}`} className="clinic-link-name">{r.title || 'Sans titre'}</Link>
+                        </td>
+                        <td>{fmtDate(r.signed_at ?? r.created_at)}</td>
+                        <td><span className={`clinic-pill ${s.cls}`}>{s.text}</span></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <Pager pager={reportPager} />
+            </>
+          )}
+        </section>
+      </div>
+
+      {/* ---------- Ordonnances ---------- */}
+      <section className="clinic-card" style={{ marginTop: 24 }}>
+        <div className="clinic-card-header">
+          <h2 className="clinic-card-title">
+            Ordonnances <span style={{ color: 'var(--clinic-muted)', fontWeight: 400 }}>({prescriptions.length})</span>
+          </h2>
+          <Link to={`/prescriptions?patient=${id}`} className="clinic-btn clinic-btn-ghost">Nouvelle ordonnance</Link>
+        </div>
+        {prescriptions.length === 0 ? (
+          <div className="clinic-empty">Aucune ordonnance.</div>
+        ) : (
+          <>
             <table className="clinic-table">
               <tbody>
-                {reports.map((r) => {
+                {rxPager.slice.map((r) => {
                   const s = REPORT_STATUS[r.status]
+                  const names = (r.content?.lines ?? []).map((l) => l.name).filter(Boolean).join(', ')
                   return (
                     <tr key={r.id}>
-                    <td className="clinic-patient-name">
-  <Link to={`/reports/${r.id}`} className="clinic-link-name">{r.title || 'Sans titre'}</Link>
-</td>
-                      <td>{fmtDate(r.signed_at ?? r.created_at)}</td>
+                      <td className="clinic-patient-name">
+                        <Link to={`/prescriptions/${r.id}`} className="clinic-link-name">
+                          {fmtDate(r.signed_at ?? r.created_at)}
+                        </Link>
+                      </td>
+                      <td className="rx-summary">{names || '—'}</td>
                       <td><span className={`clinic-pill ${s.cls}`}>{s.text}</span></td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
-          )}
-        </section>
-      </div>
+            <Pager pager={rxPager} />
+          </>
+        )}
+      </section>
 
       {/* ---------- Recherches sans radiographie ---------- */}
       {queries.length > 0 && (
@@ -312,7 +369,7 @@ export default function PatientFile() {
             <h2 className="clinic-card-title">Recherches bibliographiques (sans radiographie)</h2>
           </div>
           <ul className="clinic-finding-list" style={{ maxHeight: 'none' }}>
-            {queries.map((q) => (
+            {queryPager.slice.map((q) => (
               <li
                 key={q.id}
                 className={'clinic-finding' + (q.id === openQuery ? ' selected' : '')}
@@ -326,6 +383,7 @@ export default function PatientFile() {
               </li>
             ))}
           </ul>
+          <Pager pager={queryPager} />
         </section>
       )}
       {openQ && <AssistantPanel queries={[openQ]} />}
