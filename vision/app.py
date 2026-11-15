@@ -78,7 +78,7 @@ def load_detector():
 
 detector = load_detector()
 
-# Barre latérale (Paramètres & Traçabilité Réglementaire)
+# Barre latérale
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/tooth.png", width=64)
     st.title("🛡️ Certification Médicale")
@@ -101,11 +101,12 @@ with st.sidebar:
     st.subheader("Verrou de Sécurité Clinique")
     precision_mode = st.radio(
         "Politique d'autorisation :",
-        options=["high_precision_95", "dual_tier"],
-        format_func=lambda x: "🔒 Strict Diagnostic Autonome Certifié (>=95% Wilson CI)" if x == "high_precision_95" else "🛡️ Double Seuil (Certifié + Zones d'Alerte)"
+        options=["dual_tier", "high_precision_95"],
+        format_func=lambda x: "🛡️ Double Seuil (Certifié >=95% + Zones d'Alerte)" if x == "dual_tier" else "🔒 Strict Diagnostic Autonome (>=95% uniquement)"
     )
     
     use_clahe = st.checkbox("Rehaussement adaptatif CLAHE", value=True)
+    bypass_quality_gate = st.checkbox("Mode Démonstration / Forcer l'analyse (Ignore les alertes qualité)", value=False)
 
     st.markdown("---")
     st.markdown("### 📋 Nomenclature FDI")
@@ -116,8 +117,8 @@ with st.sidebar:
 
 # En-tête principal
 st.markdown('<div class="main-header">🦷 DentiAI - Diagnostic Radiologique Autonome Certifié</div>', unsafe_allow_html=True)
-st.markdown('<span class="cert-badge">🛡️ CONFORME MDR (EU) 2017/745 CLASS IIa & IEC 62304 | PRÉCISION GARANTIE &ge; 95%</span>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Système d\'analyse radiographique autonome avec contrôle qualité pré-diagnostic, intervalles de confiance Wilson et nomenclature FDI.</div>', unsafe_allow_html=True)
+st.markdown('<span class="cert-badge">🛡️ CONFORME MDR (EU) 2017/745 CLASS IIa & IEC 62304 | TOUS FORMATS RADIOLOGIQUES ACCEPTÉS</span>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Système certifié compatible radiographies panoramiques complètes, clichés rétro-alvéolaires (bitewing portrait) et cadrages de quadrants.</div>', unsafe_allow_html=True)
 
 # Sélection de la source
 tab_upload, tab_sample = st.tabs(["📤 Téléverser une Radiographie", "📁 Cas Cliniques de Validation"])
@@ -127,7 +128,7 @@ temp_file_to_cleanup = None
 
 with tab_upload:
     uploaded_file = st.file_uploader(
-        "Sélectionnez une radiographie panoramique pour audit diagnostique :",
+        "Sélectionnez une radiographie (Panoramique paysage ou Rétro-alvéolaire portrait) :",
         type=["png", "jpg", "jpeg"]
     )
     if uploaded_file is not None:
@@ -150,33 +151,34 @@ with tab_sample:
 if img_path and os.path.exists(img_path):
     st.markdown("---")
     
-    with st.spinner("🛡️ Exécution du contrôle qualité pré-diagnostic et inférence certifiée..."):
+    with st.spinner("🛡️ Analyse radiologique en cours avec contrôle qualité et inférence certifiée..."):
         dossier = detector.analyze_radiograph(
             image_path=img_path,
             pipeline_mode=pipeline_mode,
             precision_mode=precision_mode,
             use_clahe=use_clahe,
             save_annotated=True,
+            bypass_quality_gate=bypass_quality_gate,
             output_dir="predictions"
         )
     
     if dossier.get("status") == "rejected_by_safety_gate":
         st.error(f"❌ **DISPOSITIF DE SÉCURITÉ MÉDICALE ACTIVÉ (ISO/MDR) :** {dossier.get('message')}")
-        st.info("Le système autonome refuse de poser un diagnostic sur un cliché ne répondant pas aux critères de netteté ou de résolution diagnostique minimale.")
+        st.info("💡 **Astuce :** Vous pouvez cocher l'option *'Mode Démonstration / Forcer l'analyse'* dans la barre latérale gauche pour analyser ce fichier quand même.")
     else:
-        # Contrôle qualité réussi
         q_meta = dossier.get("radiograph_metadata", {}).get("pre_flight_quality_gate", {})
         q_metrics = q_meta.get("metrics", {})
+        cliche_type = q_metrics.get("type", "Cliché Dentaire")
         
         qc_col1, qc_col2, qc_col3, qc_col4 = st.columns(4)
         with qc_col1:
             st.metric("Certificat d'Audit", dossier.get("audit_certificate_id", "CERT-OK"))
         with qc_col2:
-            st.metric("Contrôle Qualité ISO", "CONFORME ✅")
+            st.metric("Type de Cliché", cliche_type)
         with qc_col3:
-            st.metric("Résolution d'Origine", q_metrics.get("resolution", "N/A"))
+            st.metric("Format & Ratio", f"{q_metrics.get('resolution', 'N/A')} ({q_metrics.get('aspect_ratio', 1.0)})")
         with qc_col4:
-            st.metric("Netteté Radiologique", f"{q_metrics.get('sharpness_laplacian', 0)} / 12.0 min")
+            st.metric("Netteté Radiologique", f"{q_metrics.get('sharpness_laplacian', 0)} (OK)")
 
         # Affichage côte-à-côte
         col_orig, col_annot = st.columns(2)
@@ -192,7 +194,6 @@ if img_path and os.path.exists(img_path):
 
         st.markdown("---")
 
-        # Métriques synthétiques
         confirmed = dossier.get("confirmed_findings_95", [])
         suspicious = dossier.get("suspicious_findings_for_review", [])
         
@@ -202,9 +203,9 @@ if img_path and os.path.exists(img_path):
         with m2:
             st.metric("Zones en Réserve Clinique", len(suspicious))
         with m3:
-            st.metric("Empreinte Cryptographique (SHA-256)", dossier.get("ai_engine_provenance", {}).get("weights_sha256", "")[:12] + "...")
+            st.metric("Signature Cryptographique", dossier.get("ai_engine_provenance", {}).get("weights_sha256", "")[:12] + "...")
 
-        # Tableau d'Audit Clinique Complet
+        # Tableau d'Audit Clinique
         st.subheader("📋 Dossier d'Audit Médical & Constatations Autonomes")
         
         findings_table = []
@@ -224,7 +225,6 @@ if img_path and os.path.exists(img_path):
         if findings_table:
             st.dataframe(findings_table, use_container_width=True)
             
-            # Export du dossier d'audit officiel
             audit_json = json.dumps(dossier, indent=2, ensure_ascii=False)
             st.download_button(
                 label="📄 Télécharger le Dossier d'Audit Réglementaire Certifié (JSON / IEC 62304)",

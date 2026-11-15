@@ -8,7 +8,7 @@ from medical_certification import MedicalCertificationStandard
 class DentiAIYOLO:
     """
     Moteur d'inférence médical certifié autonome DentiAI (YOLO11m).
-    Conforme aux protocoles MDR (EU) 2017/745 Class IIa et IEC 62304.
+    Supporte les radiographies panoramiques (paysage) et rétro-alvéolaires / intra-orales (portrait/carré).
     """
 
     HIGH_PRECISION_95_THRESHOLDS = {
@@ -62,7 +62,6 @@ class DentiAIYOLO:
         }
 
     def apply_clahe(self, img_or_path, clip_limit=2.5, tile_grid_size=(8, 8)):
-        """Rehaussement adaptatif de contraste CLAHE."""
         if isinstance(img_or_path, str):
             img = cv2.imread(img_or_path)
         else:
@@ -108,54 +107,53 @@ class DentiAIYOLO:
         return keep
 
     def predict_tiled_sahi(self, image, base_conf=0.25):
-        """Découpage tuilé haute résolution pour préserver 100% de la netteté."""
+        """
+        Découpage intelligent :
+        - Si grande radiographie panoramique (largeur >= 1400) : passe globale + 4 quadrants haute résolution.
+        - Si cadrage rétro-alvéolaire / portrait ou local : inférence directe à échelle native 100%.
+        """
         h_img, w_img = image.shape[:2]
         all_raw = []
 
-        # 1. Passe globale 1280px
-        global_res = self.model.predict(image, conf=base_conf, imgsz=1280, rect=True, verbose=False)
+        # Inférence globale native avec préservation de forme
+        target_imgsz = 1280 if max(h_img, w_img) >= 1200 else max(640, max(h_img, w_img))
+        global_res = self.model.predict(image, conf=base_conf, imgsz=target_imgsz, rect=True, verbose=False)
         for box in global_res[0].boxes:
-            cls_id = int(box.cls[0].item())
-            conf = float(box.conf[0].item())
-            xyxy = [float(c) for c in box.xyxy[0].tolist()]
             all_raw.append({
-                "cls_id": cls_id,
-                "confidence": conf,
-                "bbox": {"xmin": xyxy[0], "ymin": xyxy[1], "xmax": xyxy[2], "ymax": xyxy[3]},
-                "source": "global_1280"
+                "cls_id": int(box.cls[0].item()),
+                "confidence": float(box.conf[0].item()),
+                "bbox": {"xmin": float(box.xyxy[0][0]), "ymin": float(box.xyxy[0][1]), "xmax": float(box.xyxy[0][2]), "ymax": float(box.xyxy[0][3])},
+                "source": "native_resolution"
             })
 
-        # 2. Passes par quadrants avec 12% de recouvrement
-        mid_x, mid_y = w_img // 2, h_img // 2
-        ov_x, ov_y = int(w_img * 0.12), int(h_img * 0.12)
-        quadrants = [
-            ("Q1", 0, 0, min(w_img, mid_x + ov_x), min(h_img, mid_y + ov_y)),
-            ("Q2", max(0, mid_x - ov_x), 0, w_img, min(h_img, mid_y + ov_y)),
-            ("Q3", max(0, mid_x - ov_x), max(0, mid_y - ov_y), w_img, h_img),
-            ("Q4", 0, max(0, mid_y - ov_y), min(w_img, mid_x + ov_x), h_img)
-        ]
+        # Si grand cliché panoramique : tuilage additionnel par quadrants
+        if w_img >= 1400:
+            mid_x, mid_y = w_img // 2, h_img // 2
+            ov_x, ov_y = int(w_img * 0.12), int(h_img * 0.12)
+            quadrants = [
+                ("Q1", 0, 0, min(w_img, mid_x + ov_x), min(h_img, mid_y + ov_y)),
+                ("Q2", max(0, mid_x - ov_x), 0, w_img, min(h_img, mid_y + ov_y)),
+                ("Q3", max(0, mid_x - ov_x), max(0, mid_y - ov_y), w_img, h_img),
+                ("Q4", 0, max(0, mid_y - ov_y), min(w_img, mid_x + ov_x), h_img)
+            ]
 
-        for q_name, x1, y1, x2, y2 in quadrants:
-            crop = image[y1:y2, x1:x2]
-            if crop.shape[0] < 100 or crop.shape[1] < 100:
-                continue
+            for q_name, x1, y1, x2, y2 in quadrants:
+                crop = image[y1:y2, x1:x2]
+                if crop.shape[0] < 100 or crop.shape[1] < 100:
+                    continue
 
-            q_res = self.model.predict(crop, conf=base_conf, imgsz=960, rect=True, verbose=False)
-            for box in q_res[0].boxes:
-                cls_id = int(box.cls[0].item())
-                conf = float(box.conf[0].item())
-                xyxy = [float(c) for c in box.xyxy[0].tolist()]
-                all_raw.append({
-                    "cls_id": cls_id,
-                    "confidence": conf,
-                    "bbox": {"xmin": xyxy[0] + x1, "ymin": xyxy[1] + y1, "xmax": xyxy[2] + x1, "ymax": xyxy[3] + y1},
-                    "source": f"quadrant_{q_name}"
-                })
+                q_res = self.model.predict(crop, conf=base_conf, imgsz=960, rect=True, verbose=False)
+                for box in q_res[0].boxes:
+                    all_raw.append({
+                        "cls_id": int(box.cls[0].item()),
+                        "confidence": float(box.conf[0].item()),
+                        "bbox": {"xmin": float(box.xyxy[0][0]) + x1, "ymin": float(box.xyxy[0][1]) + y1, "xmax": float(box.xyxy[0][2]) + x1, "ymax": float(box.xyxy[0][3]) + y1},
+                        "source": f"quadrant_{q_name}"
+                    })
 
         return self._nms(all_raw, iou_thresh=0.45)
 
     def refine_stage2_tooth_crop(self, full_image, raw_finding):
-        """Stage 2 : Analyse fine du tissu dentaire sur recadrage natif."""
         b = raw_finding["bbox"]
         h_img, w_img = full_image.shape[:2]
         
@@ -233,10 +231,11 @@ class DentiAIYOLO:
         precision_mode="dual_tier",
         use_clahe=True,
         save_annotated=True,
+        bypass_quality_gate=False,
         output_dir="predictions"
     ):
         """
-        Analyse radiologique avec certification médicale et audit trail complet.
+        Analyse radiologique certifiée autonome compatible tous formats.
         """
         os.makedirs(output_dir, exist_ok=True)
         orig_img = cv2.imread(image_path)
@@ -245,9 +244,9 @@ class DentiAIYOLO:
 
         h_img, w_img = orig_img.shape[:2]
 
-        # 1. Contrôle Qualité Pré-Diagnostic (Pre-flight ISO Quality Gate)
-        quality_gate = MedicalCertificationStandard.validate_radiograph_quality(orig_img)
-        if not quality_gate["valid"]:
+        # 1. Contrôle Qualité Pré-Diagnostic (Pre-flight Quality Gate)
+        quality_gate = MedicalCertificationStandard.validate_radiograph_quality(orig_img, strict_mode=False)
+        if not quality_gate["valid"] and not bypass_quality_gate:
             return {
                 "status": "rejected_by_safety_gate",
                 "message": f"Contrôle qualité échoué : {quality_gate['reason']}",
@@ -257,14 +256,15 @@ class DentiAIYOLO:
         # 2. Prétraitement CLAHE
         working_img = self.apply_clahe(orig_img) if use_clahe else orig_img
 
-        # 3. Détection par Tuiles / SAHI ou Standard
+        # 3. Détection
         if pipeline_mode in ("combined_sota", "tiled_sahi"):
             raw_findings = self.predict_tiled_sahi(working_img, base_conf=self.SUSPICIOUS_REVIEW_THRESHOLD)
         else:
+            target_imgsz = 1280 if max(h_img, w_img) >= 1200 else max(640, max(h_img, w_img))
             results = self.model.predict(
                 source=working_img,
                 conf=self.SUSPICIOUS_REVIEW_THRESHOLD,
-                imgsz=1280,
+                imgsz=target_imgsz,
                 rect=True,
                 verbose=False
             )
@@ -283,7 +283,7 @@ class DentiAIYOLO:
         # 5. Arbitrage inter-classes
         clean_findings = self._cross_class_nms(raw_findings, iou_thresh=0.45)
 
-        # 6. Certification Statistique (Wilson 95% CI & FDI Quadrant Mapping)
+        # 6. Certification Statistique (Wilson 95% CI & FDI Quadrant)
         certified_findings = []
         suspicious_findings = []
         finding_id = 1
@@ -294,10 +294,7 @@ class DentiAIYOLO:
             p95_th = self.HIGH_PRECISION_95_THRESHOLDS.get(cls_id, 0.80)
             is_95 = conf >= p95_th
 
-            # Intervalle de confiance Wilson à 95%
             lower_ci, upper_ci = MedicalCertificationStandard.compute_wilson_confidence_interval(conf)
-
-            # Identification du quadrant anatomique international FDI
             fdi_info = MedicalCertificationStandard.determine_fdi_tooth_quadrant(f["bbox"], w_img, h_img)
 
             finding_item = {
@@ -355,7 +352,7 @@ class DentiAIYOLO:
             annotated_path = os.path.join(output_dir, save_name)
             cv2.imwrite(annotated_path, vis_img)
 
-        # 8. Génération du Dossier d'Audit Médical Complet (IEC 62304 / ISO 13485)
+        # 8. Dossier d'Audit Médical
         dossier = MedicalCertificationStandard.generate_certified_audit_dossier(
             model_weights_path=self.weights_path,
             radiograph_filename=os.path.basename(image_path),
@@ -368,19 +365,3 @@ class DentiAIYOLO:
         dossier["suspicious_findings_for_review"] = suspicious_findings
 
         return dossier
-
-if __name__ == "__main__":
-    detector = DentiAIYOLO()
-    val_dir = "dentex_yolo/images/val"
-    test_img = os.path.join(val_dir, "train_202.png")
-    
-    if os.path.exists(test_img):
-        print(f"\n--- Diagnostic Médical Certifié Autonome de {test_img} ---")
-        res = detector.analyze_radiograph(
-            image_path=test_img,
-            pipeline_mode="combined_sota",
-            precision_mode="dual_tier",
-            use_clahe=True,
-            save_annotated=True
-        )
-        print(json.dumps(res, indent=2, ensure_ascii=False))

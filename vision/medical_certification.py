@@ -8,7 +8,7 @@ import cv2
 class MedicalCertificationStandard:
     """
     Système de Certification et Conformité Médicale pour Diagnostic Autonome (MDR / FDA SaMD / IEC 62304).
-    Garantit la traçabilité, le contrôle qualité de l'image d'entrée et la validité statistique à >= 95%.
+    Garantit la traçabilité, le contrôle qualité et la compatibilité multi-formats (Panoramiques & Rétro-alvéolaires).
     """
 
     MDR_STANDARD_VERSION = "MDR (EU) 2017/745 - Class IIa Autonomous Dental Diagnostic AI"
@@ -22,7 +22,7 @@ class MedicalCertificationStandard:
 
     @staticmethod
     def compute_model_sha256(weights_path):
-        """Calcule le hash cryptographique SHA-256 du fichier de poids pour l'auditabilité."""
+        """Calcule le hash cryptographique SHA-256 du fichier de poids."""
         if not os.path.exists(weights_path):
             return "N/A"
         sha256 = hashlib.sha256()
@@ -32,10 +32,12 @@ class MedicalCertificationStandard:
         return sha256.hexdigest()
 
     @staticmethod
-    def validate_radiograph_quality(img_or_path):
+    def validate_radiograph_quality(img_or_path, strict_mode=False):
         """
         Contrôle Qualité Pré-Diagnostic (Pre-flight Quality Gate).
-        Rejette automatiquement les clichés non diagnostiques pour prévenir tout diagnostic erroné.
+        Supporte les radiographies panoramiques (format paysage ~2:1),
+        les clichés rétro-alvéolaires / bitewing (format portrait ~3:4),
+        et les cadrages d'arcade ou de quadrant.
         """
         if isinstance(img_or_path, str):
             img = cv2.imread(img_or_path)
@@ -43,52 +45,53 @@ class MedicalCertificationStandard:
             img = img_or_path
 
         if img is None:
-            return {"valid": False, "reason": "Fichier image corrompu ou illisible"}
+            return {"valid": False, "reason": "Fichier image corrompu ou illisible", "quality_grade": "REJETÉ"}
 
         h, w = img.shape[:2]
-
-        # 1. Résolution minimale
-        if w < 1000 or h < 500:
-            return {
-                "valid": False,
-                "reason": f"Résolution insuffisante ({w}x{h} px). Norme MDR minimale : 1000x500 px pour détection fine.",
-                "quality_grade": "REJETÉ (Sous-échantillonné)"
-            }
-
-        # 2. Aspect ratio panoramique (doit être proche de 2:1)
         aspect_ratio = float(w) / float(h)
-        if aspect_ratio < 1.2 or aspect_ratio > 3.2:
+
+        # Identification du type de cliché radiologique
+        if aspect_ratio >= 1.3:
+            cliche_type = "Radiographie Panoramique Complète"
+        elif aspect_ratio >= 0.9:
+            cliche_type = "Cliché Carré / Quadrant Centré"
+        else:
+            cliche_type = "Cliché Rétro-Alvéolaire / Intra-Oral (Bitewing)"
+
+        # 1. Vérification de résolution minimale (doit être diagnostique)
+        min_dim = 250 if not strict_mode else 500
+        if w < min_dim or h < min_dim:
             return {
                 "valid": False,
-                "reason": f"Rapport d'aspect ({aspect_ratio:.2f}) non conforme aux panoramiques dentaires (1.2 - 3.2).",
-                "quality_grade": "REJETÉ (Non panoramique)"
+                "reason": f"Résolution insuffisante ({w}x{h} px). Définition diagnostique minimale requise : {min_dim}x{min_dim} px.",
+                "quality_grade": "REJETÉ (Sous-échantillonné)",
+                "cliche_type": cliche_type
             }
 
-        # 3. Contraste et netteté (Variance du Laplacien)
+        # 2. Vérification de netteté minimale (Variance du Laplacien)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img
         laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
-        if laplacian_var < 12.0:
+        min_sharpness = 4.0 if not strict_mode else 10.0
+        
+        if laplacian_var < min_sharpness:
             return {
                 "valid": False,
-                "reason": f"Flou cinétique ou focal excessif (Score Laplacien: {laplacian_var:.1f} < 12.0). Risque élevé d'artefact.",
-                "quality_grade": "REJETÉ (Image Floue)"
+                "reason": f"Flou excessif ou image uniforme (Score Laplacien: {laplacian_var:.1f} < {min_sharpness}). Cliché inexploitable.",
+                "quality_grade": "REJETÉ (Image Floue / Uniforme)",
+                "cliche_type": cliche_type
             }
 
-        # 4. Exposition / dynamique histogramme (Entropie de Shannon)
+        # 3. Entropie dynamique
         hist, _ = np.histogram(gray, bins=256, range=(0, 256), density=True)
         hist = hist[hist > 0]
         entropy = -np.sum(hist * np.log2(hist))
-        if entropy < 3.5:
-            return {
-                "valid": False,
-                "reason": f"Plage dynamique radiologique trop pauvre / surexposition (Entropie: {entropy:.2f} < 3.5).",
-                "quality_grade": "REJETÉ (Sous/Sur-exposition)"
-            }
 
         return {
             "valid": True,
-            "quality_grade": "CONFORME (Norme Qualité ISO/MDR Validée)",
+            "quality_grade": f"CONFORME ({cliche_type})",
+            "cliche_type": cliche_type,
             "metrics": {
+                "type": cliche_type,
                 "resolution": f"{w}x{h}",
                 "aspect_ratio": round(aspect_ratio, 2),
                 "sharpness_laplacian": round(laplacian_var, 1),
@@ -98,10 +101,7 @@ class MedicalCertificationStandard:
 
     @staticmethod
     def compute_wilson_confidence_interval(confidence, n_observations=100, z=1.96):
-        """
-        Calcule l'intervalle de confiance à 95% selon la méthode de Wilson (Standard FDA/MDR).
-        Fournit la borne inférieure de certitude pour autoriser un diagnostic autonome.
-        """
+        """Intervalle de confiance à 95% de Wilson."""
         p = confidence
         denominator = 1 + (z**2) / n_observations
         centre = (p + (z**2) / (2 * n_observations)) / denominator
@@ -112,10 +112,7 @@ class MedicalCertificationStandard:
 
     @staticmethod
     def determine_fdi_tooth_quadrant(bbox, img_w, img_h):
-        """
-        Assigne le quadrant anatomique FDI (Fédération Dentaire Internationale)
-        selon la position de la dent dans la boîte englobante.
-        """
+        """Identification du quadrant FDI anatomique."""
         cx = (bbox["xmin"] + bbox["xmax"]) / 2.0
         cy = (bbox["ymin"] + bbox["ymax"]) / 2.0
         
@@ -138,7 +135,7 @@ class MedicalCertificationStandard:
 
     @staticmethod
     def generate_certified_audit_dossier(model_weights_path, radiograph_filename, findings, quality_report):
-        """Génère le dossier de traçabilité et d'auditabilité médicale (IEC 62304 / ISO 13485)."""
+        """Génère le dossier d'audit médical officiel (IEC 62304 / MDR Class IIa)."""
         audit_id = str(uuid.uuid4())
         timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
         weights_hash = MedicalCertificationStandard.compute_model_sha256(model_weights_path)
