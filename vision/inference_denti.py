@@ -17,8 +17,8 @@ class DentiAIYOLO:
     ADAPTIVE_PATHOLOGY_THRESHOLDS = {
         0: 0.70,  # Impacted (Dent incluse) : structure macroscopique nette
         1: 0.38,  # Caries (Carie débutante)
-        2: 0.18,  # Periapical Lesion (Lésion à l'apex) : seuil sensible avec validation Stage 2
-        3: 0.28   # Deep Caries (Carie profonde) : seuil optimisé avec mesure de profondeur pulpaire
+        2: 0.10,  # Periapical Lesion (Lésion à l'apex) : seuil sensible calibré avec validation apicale
+        3: 0.25   # Deep Caries (Carie profonde) : seuil calibré avec mesure de pénétration pulpaire
     }
 
     HIGH_PRECISION_95_THRESHOLDS = {
@@ -28,7 +28,7 @@ class DentiAIYOLO:
         3: 0.72
     }
 
-    SUSPICIOUS_REVIEW_THRESHOLD = 0.18
+    SUSPICIOUS_REVIEW_THRESHOLD = 0.08
 
     CLASS_COLORS = {
         0: (255, 165, 0),    # Impacted: Orange
