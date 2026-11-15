@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
     }
     supabase
       .from('profiles')
-      .select('id, full_name, role, language')
+      .select('id, full_name, role, language, works_for')
       .eq('id', session.user.id)
       .single()
       .then(({ data }) => setProfile(data))

@@ -1345,3 +1345,27 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 
 .clinic-pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px; color: var(--clinic-muted); }
 .rx-summary { color: var(--clinic-muted); max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.public-wrap { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+
+
+/* ---------- Secretary ---------- */
+.sec-bar { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 12px 24px;
+  background: var(--clinic-surface); border-bottom: 1px solid var(--clinic-border); }
+.sec-brand { color: var(--clinic-primary-hover); }
+.sec-nav { display: flex; gap: 6px; flex: 1; }
+.sec-link { padding: 8px 14px; border-radius: 10px; text-decoration: none; color: var(--clinic-text); font-weight: 600; }
+.sec-link:hover { background: var(--clinic-primary-soft); }
+.sec-link.active { background: var(--clinic-primary-soft); color: var(--clinic-primary); }
+.sec-user { display: flex; align-items: center; gap: 12px; }
+.sec-main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+
+.req-list { list-style: none; margin: 0; padding: 0; }
+.req { display: grid; grid-template-columns: 1fr auto; gap: 12px 20px; padding: 18px 24px; border-top: 1px solid var(--clinic-border); }
+.req:first-child { border-top: none; }
+.req-main { display: grid; gap: 3px; }
+.req-actions { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.req-confirm { grid-column: 1 / -1; padding: 16px; border: 1px solid var(--clinic-border); border-radius: 12px; background: var(--clinic-surface-soft); }
+@media (max-width: 760px) { .req { grid-template-columns: 1fr; } }

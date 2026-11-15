@@ -7,7 +7,7 @@ import logo from '../assets/logo.png'
 
 import {
   LayoutDashboard, Users, Scan, CalendarDays,
-  MessageSquare, FileText, Bell, Settings as SettingsIcon, LogOut,Pill
+  MessageSquare, FileText, Bell, Settings as SettingsIcon, LogOut,Pill,Inbox, 
 } from 'lucide-react'
 import { useUnread } from '../features/notifications/useUnread'
 
@@ -20,6 +20,7 @@ const nav = [
   { to: '/prescriptions', label: 'Ordonnances', icon: Pill },
   { to: '/notifications', label: 'Notifications', icon: Bell, badge: true },
 { to: '/settings', label: 'Paramètres', icon: SettingsIcon },
+{ to: '/requests', label: 'Demandes', icon: Inbox },
 ]
 
 const soon = [

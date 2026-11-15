@@ -13,6 +13,7 @@ import logging
 from llm import ENABLED as LLM_ENABLED, MODEL as LLM_MODEL, finalize, generate
 from typing import Literal
 from report_agent import build_draft
+from booking import router as booking_router
 
 
 
@@ -32,7 +33,9 @@ app.add_middleware(
     allow_origins=[os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173")],
     allow_methods=["*"],
     allow_headers=["*"],
+    
 )
+app.include_router(booking_router)
 
 
 def current_user(authorization: str | None = Header(default=None)):

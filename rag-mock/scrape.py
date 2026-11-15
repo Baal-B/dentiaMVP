@@ -39,6 +39,7 @@ def main():
     ap.add_argument("--per-topic", type=int, default=20)
     ap.add_argument("--max-notify", type=int, default=8, help="max notifications per doctor per run")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--reindex", action="store_true", help="also re-send already-known articles to the search index")
     args = ap.parse_args()
 
     sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])

@@ -9,6 +9,7 @@ const EMPTY = {
   extra_fr: '', extra_ar: '',
   practice_address: '', practice_address_ar: '',
   practice_name: '', license_number: '', practice_phone: '', practice_email: '',
+  booking_slug: '', booking_open: false,
 }
 const KEYS = Object.keys(EMPTY)
 
@@ -61,13 +62,26 @@ export default function Settings() {
     setInterests((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]))
   }
 
-  async function save(e) {
+    async function save(e) {
     e.preventDefault()
-    setSaving(true); setError(''); setSaved(false)
-    const { error } = await supabase
-      .from('profiles').update({ ...pro, full_name: pro.full_name.trim(), interests }).eq('id', user.id)
+    setError(''); setSaved(false)
+    const payload = {
+      ...pro,
+      full_name: pro.full_name.trim(),
+      booking_slug: pro.booking_slug.trim().toLowerCase() || null,
+      interests,
+    }
+    if (payload.booking_open && !payload.booking_slug) {
+      return setError('Choisissez un lien avant d\'activer la prise de rendez-vous en ligne.')
+    }
+    setSaving(true)
+    const { error } = await supabase.from('profiles').update(payload).eq('id', user.id)
     setSaving(false)
-    if (error) return setError(error.message)
+    if (error) {
+      if (error.code === '23505') return setError('Ce lien est déjà utilisé, choisissez-en un autre.')
+      if (error.code === '23514') return setError('Le lien doit faire 3 à 40 caractères : lettres minuscules, chiffres et tirets.')
+      return setError(error.message)
+    }
     setSaved(true)
   }
 
@@ -110,6 +124,30 @@ export default function Settings() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+                <section className="clinic-card" style={{ marginBottom: 24 }}>
+          <div className="clinic-card-header"><h2 className="clinic-card-title">Prise de rendez-vous en ligne</h2></div>
+          <div className="clinic-card-body">
+            <p style={{ marginTop: 0, color: 'var(--clinic-muted)' }}>
+              Vos patients envoient une demande depuis un lien public. Rien n'est réservé automatiquement : le secrétariat confirme.
+            </p>
+            <div className="clinic-field" style={{ maxWidth: 420 }}>
+              <label htmlFor="booking_slug">Lien personnalisé</label>
+              <input id="booking_slug" className="clinic-input" value={pro.booking_slug}
+                placeholder="ex : cabinet-rzig"
+                onChange={(e) => set('booking_slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} />
+              {pro.booking_slug && (
+                <small style={{ color: 'var(--clinic-muted)' }}>
+                  {window.location.origin}/reserver/{pro.booking_slug}
+                </small>
+              )}
+            </div>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <input type="checkbox" checked={pro.booking_open} onChange={(e) => set('booking_open', e.target.checked)} />
+              Accepter les demandes en ligne
+            </label>
           </div>
         </section>
 
