@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { fmtDateTime } from '../../lib/format'
+import AgentJournal from '../agent/AgentJournal'
+
 
 export default function Notifications() {
   const [items, setItems] = useState([])
@@ -88,6 +90,7 @@ export default function Notifications() {
           </ul>
         )}
       </section>
+       <AgentJournal />
     </>
   )
 }

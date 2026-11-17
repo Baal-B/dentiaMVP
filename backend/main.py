@@ -3,9 +3,11 @@ import os
 import random
 import re
 
+import asyncio
+
 import httpx
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException,BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -15,6 +17,9 @@ from llm import ENABLED as LLM_ENABLED, MODEL as LLM_MODEL, finalize, generate
 from typing import Literal
 from report_agent import build_draft
 from booking import router as booking_router
+from watch_agent import WatchBusy, run_watch, start_run
+
+from scheduler import ENABLED as WATCH_AUTO, loop as watch_loop
 
 
 
@@ -366,3 +371,32 @@ def remove_secretary(secretary_id: str, user=Depends(current_user)):
     except Exception:
         raise HTTPException(409, "Suppression impossible (compte lié à un historique).")
     return {"ok": True}
+
+
+class WatchRequest(BaseModel):
+    dry_run: bool = False
+    days: int = Field(default=14, ge=1, le=60)
+
+
+@app.post("/agent/watch/run")
+def run_watch_agent(body: WatchRequest, background: BackgroundTasks, user=Depends(current_user)):
+    require_doctor(user)   # defined in the "Mon équipe" step
+    try:
+        run_id = start_run(sb, user.id, body.dry_run)
+    except WatchBusy:
+        raise HTTPException(409, "Une veille est déjà en cours.")
+    background.add_task(run_watch, sb, run_id, user.id, body.dry_run, body.days)
+    return {"run_id": run_id}
+
+
+@app.on_event("startup")
+def close_dead_runs():
+    # a run still marked "running" when the server starts was killed with the previous process
+    sb.table("agent_runs").update({"status": "failed", "summary": "Interrompu (serveur redémarré)."}) \
+        .eq("status", "running").execute()
+
+
+@app.on_event("startup")
+async def start_scheduler():
+    if WATCH_AUTO:
+        app.state.watch_task = asyncio.create_task(watch_loop(sb))

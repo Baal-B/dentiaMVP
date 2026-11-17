@@ -1375,3 +1375,11 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 .cab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
 .cab-card { padding: 20px; display: grid; gap: 8px; align-content: start; }
 .cab-names { display: flex; justify-content: space-between; gap: 12px; }
+
+.agent-runs { list-style: none; margin: 0; padding: 0; }
+.agent-run { padding: 14px 24px; border-top: 1px solid var(--clinic-border); display: grid; gap: 6px; }
+.agent-run-head { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 600; flex-wrap: wrap; }
+.agent-steps { margin: 6px 0; padding-left: 0; list-style: none; display: grid; gap: 10px; }
+.agent-step { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid var(--clinic-border); border-radius: 10px; background: var(--clinic-surface-soft); }
+.agent-args, .agent-obs { font-size: 13px; word-break: break-word; white-space: pre-wrap; }
+.agent-args { margin-left: 10px; color: var(--clinic-muted); }

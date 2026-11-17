@@ -1,6 +1,11 @@
 import os
 from contextlib import asynccontextmanager
 
+import httpx
+
+from ingest import fetch_articles  # noqa: E402
+from scrape import recent_pmids  # noqa: E402
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
@@ -10,6 +15,9 @@ from store import collection, embed_query, model  # noqa: E402  (after load_dote
 import hmac
 from fastapi import FastAPI, Header, HTTPException   # extend your existing fastapi import
 from ingest import add_articles
+
+
+
 
 
 MIN_SCORE = float(os.getenv("MIN_SCORE", "0.80"))
@@ -104,3 +112,24 @@ def ingest_articles(body: IngestRequest, x_admin_key: str | None = Header(defaul
     if not ADMIN_KEY or not x_admin_key or not hmac.compare_digest(x_admin_key, ADMIN_KEY):
         raise HTTPException(403, "Forbidden")
     return {"chunks_added": add_articles(collection(), body.articles)}
+
+
+class PubmedRequest(BaseModel):
+    query: str = Field(min_length=3, max_length=300)
+    days: int = Field(default=30, ge=1, le=365)
+    limit: int = Field(default=10, ge=1, le=25)
+
+DENTAL = ('(dental[tiab] OR dentistry[tiab] OR tooth[tiab] OR teeth[tiab] OR periodontal[tiab] '
+          'OR periodontitis[tiab] OR endodontic[tiab] OR oral[tiab] OR "Dentistry"[MeSH])')
+
+
+@app.post("/pubmed")
+def pubmed_recent(body: PubmedRequest, x_admin_key: str | None = Header(default=None)):
+    """Recent PubMed articles for a query (read-only). Used by the watch agent."""
+    if not ADMIN_KEY or not x_admin_key or not hmac.compare_digest(x_admin_key, ADMIN_KEY):
+        raise HTTPException(403, "Forbidden")
+    with httpx.Client(timeout=60) as client:
+        ids = recent_pmids(client, f"({body.query}) AND {DENTAL}", body.days, body.limit)
+        arts = fetch_articles(client, ids) if ids else []
+    keep = ("pmid", "title", "abstract", "journal", "year", "authors", "doi", "url")
+    return {"articles": [{k: a.get(k) for k in keep} for a in arts if a.get("title")]}
