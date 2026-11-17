@@ -1369,3 +1369,9 @@ input[type='file'].clinic-input { padding: 10px 12px; cursor: pointer; }
 .req-actions { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
 .req-confirm { grid-column: 1 / -1; padding: 16px; border: 1px solid var(--clinic-border); border-radius: 12px; background: var(--clinic-surface-soft); }
 @media (max-width: 760px) { .req { grid-template-columns: 1fr; } }
+
+
+.public-wrap.wide { max-width: 960px; }
+.cab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+.cab-card { padding: 20px; display: grid; gap: 8px; align-content: start; }
+.cab-names { display: flex; justify-content: space-between; gap: 12px; }

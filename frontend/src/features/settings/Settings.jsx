@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { TOPICS } from '../../lib/topics'
+import Team from './Team'
 
 const EMPTY = {
   full_name: '', name_ar: '',
@@ -10,6 +11,7 @@ const EMPTY = {
   practice_address: '', practice_address_ar: '',
   practice_name: '', license_number: '', practice_phone: '', practice_email: '',
   booking_slug: '', booking_open: false,
+  practice_city: '', booking_listed: false,
 }
 const KEYS = Object.keys(EMPTY)
 
@@ -117,6 +119,7 @@ export default function Settings() {
                 ['practice_name', 'Nom du cabinet (facultatif)'],
                 ['practice_phone', 'Téléphone du cabinet'],
                 ['practice_email', 'E-mail du cabinet (facultatif)'],
+                ['practice_city', 'Ville'],
               ].map(([k, label]) => (
                 <div className="clinic-field clinic-col-6" key={k}>
                   <label htmlFor={k}>{label}</label>
@@ -148,6 +151,11 @@ export default function Settings() {
               <input type="checkbox" checked={pro.booking_open} onChange={(e) => set('booking_open', e.target.checked)} />
               Accepter les demandes en ligne
             </label>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, opacity: pro.booking_open ? 1 : 0.5 }}>
+              <input type="checkbox" checked={pro.booking_listed} disabled={!pro.booking_open}
+                onChange={(e) => set('booking_listed', e.target.checked)} />
+              Apparaître dans l'annuaire des cabinets (ville, adresse et téléphone visibles publiquement)
+            </label>
           </div>
         </section>
 
@@ -174,6 +182,7 @@ export default function Settings() {
         {saved && <span className="clinic-success" style={{ marginLeft: 12, display: 'inline-block' }}>Enregistré.</span>}
         {error && <p className="clinic-error">{error}</p>}
       </form>
+        <Team />
     </>
   )
 }

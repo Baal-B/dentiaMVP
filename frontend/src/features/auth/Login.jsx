@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate,Link } from 'react-router-dom'
 import { useAuth } from './AuthProvider'
 import '../../styles/clinic.css'
 import logo from '../../assets/logo.png'
@@ -80,6 +80,7 @@ export default function Login() {
         </button>
 
         {error && <p className="clinic-error">{error}</p>}
+        <p><Link to="/cabinets">Vous êtes patient ? Trouver un cabinet</Link></p>
       </form>
     </div>
   )

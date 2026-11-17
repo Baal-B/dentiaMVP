@@ -134,3 +134,24 @@ def create_booking(body: BookingIn, request: Request):
     except Exception:
         raise HTTPException(500, "Impossible d'enregistrer la demande.")
     return {"ok": True}      # nothing else is returned: no id, no doctor details
+
+
+PAGE_SIZE = 12
+
+
+@router.get("/doctors")
+def list_doctors(q: str = "", page: int = 0):
+    q = clean(q)[:60]
+    page = max(0, min(page, 200))
+    query = (sb.table("profiles")
+             .select("full_name, name_ar, title_fr, title_ar, practice_name, practice_address, "
+                     "practice_city, practice_phone, booking_slug", count="exact")
+             .eq("booking_open", True).eq("booking_listed", True).in_("role", ["doctor", "admin"]))
+    if q:
+        term = re.sub(r"[%_,()\\*]", " ", q).strip()   # characters that mean something in a PostgREST filter
+        if term:
+            query = query.or_(
+                f"full_name.ilike.%{term}%,practice_name.ilike.%{term}%,"
+                f"practice_city.ilike.%{term}%,practice_address.ilike.%{term}%")
+    res = query.order("full_name").range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1).execute()
+    return {"items": res.data, "total": res.count or 0, "page_size": PAGE_SIZE}

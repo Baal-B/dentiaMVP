@@ -1,6 +1,7 @@
 import io
 import os
 import random
+import re
 
 import httpx
 from dotenv import load_dotenv
@@ -14,6 +15,7 @@ from llm import ENABLED as LLM_ENABLED, MODEL as LLM_MODEL, finalize, generate
 from typing import Literal
 from report_agent import build_draft
 from booking import router as booking_router
+
 
 
 
@@ -291,3 +293,76 @@ def draft_report(body: DraftRequest, user=Depends(current_user)):
         return build_draft(report, body.sections, RAG_URL)   # a proposal: nothing is saved here
     except httpx.HTTPError:
         raise HTTPException(502, "Literature search unavailable")
+
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+MAX_SECRETARIES = 5
+
+
+def require_doctor(user):
+    r = sb.table("profiles").select("role").eq("id", user.id).limit(1).execute()
+    if not r.data or r.data[0]["role"] not in ("doctor", "admin"):
+        raise HTTPException(403, "Réservé aux praticiens")
+
+
+class SecretaryIn(BaseModel):
+    full_name: str = Field(min_length=2, max_length=80)
+    email: str = Field(max_length=120)
+    password: str = Field(min_length=10, max_length=72)
+
+
+@app.get("/secretaries")
+def list_secretaries(user=Depends(current_user)):
+    require_doctor(user)
+    rows = (sb.table("profiles").select("id, full_name, created_at")
+            .eq("role", "secretary").eq("works_for", user.id).order("created_at").execute().data)
+    out = []
+    for r in rows:
+        try:
+            email = sb.auth.admin.get_user_by_id(r["id"]).user.email
+        except Exception:
+            email = None
+        out.append({**r, "email": email})
+    return out
+
+
+@app.post("/secretaries")
+def create_secretary(body: SecretaryIn, user=Depends(current_user)):
+    require_doctor(user)
+    email = body.email.strip().lower()
+    if not EMAIL_RE.match(email):
+        raise HTTPException(422, "Adresse e-mail invalide.")
+    mine = (sb.table("profiles").select("id", count="exact")
+            .eq("role", "secretary").eq("works_for", user.id).limit(1).execute().count or 0)
+    if mine >= MAX_SECRETARIES:
+        raise HTTPException(409, f"Maximum {MAX_SECRETARIES} comptes secrétariat.")
+    try:
+        created = sb.auth.admin.create_user({
+            "email": email, "password": body.password, "email_confirm": True,
+            "user_metadata": {"full_name": body.full_name.strip()},
+        })
+    except Exception:
+        raise HTTPException(400, "Impossible de créer ce compte (e-mail déjà utilisé ?).")
+    new_id = created.user.id
+    # the signup trigger made a plain 'doctor' profile: turn it into this doctor's secretary
+    res = (sb.table("profiles")
+           .update({"role": "secretary", "works_for": user.id, "full_name": body.full_name.strip()})
+           .eq("id", new_id).execute())
+    if not res.data:
+        sb.auth.admin.delete_user(new_id)
+        raise HTTPException(500, "Création du compte échouée.")
+    return {"id": new_id, "email": email, "full_name": body.full_name.strip()}
+
+
+@app.delete("/secretaries/{secretary_id}")
+def remove_secretary(secretary_id: str, user=Depends(current_user)):
+    require_doctor(user)
+    r = (sb.table("profiles").select("id").eq("id", secretary_id)
+         .eq("role", "secretary").eq("works_for", user.id).limit(1).execute())
+    if not r.data:
+        raise HTTPException(404, "Introuvable")
+    try:
+        sb.auth.admin.delete_user(secretary_id)
+    except Exception:
+        raise HTTPException(409, "Suppression impossible (compte lié à un historique).")
+    return {"ok": True}

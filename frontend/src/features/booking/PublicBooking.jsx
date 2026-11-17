@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams,Link } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -56,6 +56,7 @@ export default function PublicBooking() {
 
   return (
     <div className="public-wrap">
+      <Link to="/cabinets" className="clinic-back">← Tous les cabinets</Link>
       <section className="clinic-card">
         <div className="clinic-card-body">
           <header className="rx-head" style={{ marginBottom: 8 }}>

@@ -20,6 +20,7 @@ import SecretaryLayout from './features/secretary/SecretaryLayout'
 import Requests from './features/secretary/Requests'
 import SecretaryAgenda from './features/secretary/SecretaryAgenda'
 import SecretaryPatients from './features/secretary/SecretaryPatients'
+import Cabinets from './features/booking/Cabinets'
 
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/reserver/:slug" element={<PublicBooking />} />
+      <Route path="/cabinets" element={<Cabinets />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<DoctorOnly />}>
           <Route element={<AppLayout />}>
