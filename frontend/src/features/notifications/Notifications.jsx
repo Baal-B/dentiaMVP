@@ -14,6 +14,7 @@ export default function Notifications() {
     const { data, error } = await supabase
       .from('notifications')
       .select('id, kind, title, body, link, read_at, created_at')
+      .neq('kind', 'event')
       .order('created_at', { ascending: false })
       .limit(100)
     if (error) setError(error.message)
@@ -34,7 +35,8 @@ export default function Notifications() {
 
   async function markAll() {
     const { error } = await supabase
-      .from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null)
+      .from('notifications').update({ read_at: new Date().toISOString() })
+      .is('read_at', null).neq('kind', 'event')
     if (error) return setError(error.message)
     await load()
     changed()

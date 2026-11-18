@@ -40,9 +40,12 @@ def _due(sb, doctor_id: str) -> bool:
 def tick(sb):
     if not LLM_ENABLED or datetime.now().hour < START_HOUR:
         return
-    doctors = sb.table("profiles").select("id, interests").in_("role", ["doctor", "admin"]).execute().data
+    doctors = sb.table("profiles").select("id, interests, notify_articles, notify_events") \
+        .in_("role", ["doctor", "admin"]).execute().data
     for d in doctors:
-        if not d.get("interests") or not _due(sb, d["id"]):
+        wants_articles = d.get("notify_articles") is not False and bool(d.get("interests"))
+        wants_events = d.get("notify_events") is not False
+        if not (wants_articles or wants_events) or not _due(sb, d["id"]):
             continue
         try:
             run_id = start_run(sb, d["id"], False)

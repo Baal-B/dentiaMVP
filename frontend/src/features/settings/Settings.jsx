@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { TOPICS } from '../../lib/topics'
 import Team from './Team'
+import NotifyPrefs from './NotifyPrefs'
 
 const EMPTY = {
   full_name: '', name_ar: '',
@@ -183,6 +184,7 @@ export default function Settings() {
         {error && <p className="clinic-error">{error}</p>}
       </form>
         <Team />
+        <NotifyPrefs />
     </>
   )
 }

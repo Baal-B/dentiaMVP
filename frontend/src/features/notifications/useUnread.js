@@ -10,8 +10,9 @@ export function useUnread() {
     if (!user) return
     let alive = true
     const load = async () => {
-      const { count } = await supabase
-        .from('notifications').select('*', { count: 'exact', head: true }).is('read_at', null)
+            const { count } = await supabase
+        .from('notifications').select('*', { count: 'exact', head: true })
+        .is('read_at', null).neq('kind', 'event')
       if (alive) setCount(count ?? 0)
     }
     load()

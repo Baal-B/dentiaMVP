@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { fmtDateTime, fullName } from '../../lib/format'
+import EventsBell from '../events/EventsBell'
 
 function todayRange() {
   const start = new Date()
@@ -63,9 +64,14 @@ export default function Dashboard() {
 
   return (
     <>
-      <h1 className="clinic-page-title">Bonjour{firstName ? `, ${firstName}` : ''}</h1>
-      <p className="clinic-page-sub">Voici l'aperçu de votre activité.</p>
-
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div>
+          <h1 className="clinic-page-title">Bonjour{firstName ? `, ${firstName}` : ''}</h1>
+          <p className="clinic-page-sub">Voici l'aperçu de votre activité.</p>
+        </div>
+        <EventsBell />
+      </div>
+     
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         <Link to="/analysis" className="clinic-btn clinic-btn-primary">Nouvelle analyse</Link>
         <Link to="/appointments" className="clinic-btn clinic-btn-ghost">Nouveau rendez-vous</Link>

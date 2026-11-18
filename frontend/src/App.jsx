@@ -21,6 +21,7 @@ import Requests from './features/secretary/Requests'
 import SecretaryAgenda from './features/secretary/SecretaryAgenda'
 import SecretaryPatients from './features/secretary/SecretaryPatients'
 import Cabinets from './features/booking/Cabinets'
+import Events from './features/events/Events'
 
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="reports" element={<Reports />} />
             <Route path="reports/:id" element={<ReportEditor />} />
             <Route path="notifications" element={<Notifications />} />
+            <Route path="events" element={<Events />} />
             <Route path="settings" element={<Settings />} />
             <Route path="prescriptions" element={<Prescriptions />} />
             <Route path="prescriptions/:id" element={<PrescriptionEditor />} />
