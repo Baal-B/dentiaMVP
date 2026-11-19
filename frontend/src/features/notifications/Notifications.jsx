@@ -53,6 +53,9 @@ export default function Notifications() {
       </p>
       {error && <p className="clinic-error">{error}</p>}
 
+      <AgentJournal />
+      <div></div>
+
       <section className="clinic-card">
         <div className="clinic-card-header">
           <h2 className="clinic-card-title">
@@ -92,7 +95,7 @@ export default function Notifications() {
           </ul>
         )}
       </section>
-       <AgentJournal />
+       
     </>
   )
 }

@@ -56,7 +56,7 @@ def main():
         known: set[str] = set()
         for chunk in batches(list(url_of.values()), 100):
             known |= {r["url"] for r in sb.table("articles").select("url").in_("url", chunk).execute().data}
-        new_pmids = [p for p, u in url_of.items() if u not in known]
+        new_pmids = list(topics_of) if args.reindex else [p for p, u in url_of.items() if u not in known]
         print(f"{len(topics_of)} articles found, {len(new_pmids)} new")
 
         articles = []
