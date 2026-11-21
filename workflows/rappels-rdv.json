@@ -1,0 +1,141 @@
+{
+  "name": "DentIA - Rappels RDV",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -128,
+        -32
+      ],
+      "id": "93c9fb06-907a-4809-837d-7abb4f700634",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM reminder_due;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        96,
+        -32
+      ],
+      "id": "a946b415-d6e6-490e-8bb1-1becd61e2cfc",
+      "name": "Rendez-vous de demain",
+      "credentials": {
+        "postgres": {
+          "id": "0uvSJk0SEveemZVi",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "DentIA <houmembellanes12@gmail.com>",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Rappel : votre rendez-vous de demain",
+        "html": "=<p>Bonjour {{ $json.first_name }},</p>\n<p>Nous vous rappelons votre rendez-vous au cabinet <strong>{{ $json.practice_name }}</strong> :\n<strong>{{ new Date($json.starts_at).toLocaleString('fr-FR', { timeZone: 'Africa/Tunis', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) }}</strong>.</p>\n<p>Pour toute modification, appelez le {{ $json.practice_phone }}.</p>\n<p>À demain !</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        288,
+        -32
+      ],
+      "id": "42648a28-71a8-437d-be96-a8e1a3de78f8",
+      "name": "Envoyer le rappel",
+      "webhookId": "daf0b8a9-5405-45e8-829a-a72858e139e6",
+      "credentials": {
+        "smtp": {
+          "id": "1jBYRVcCTsNuIOWN",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT mark_reminder_sent($1::uuid);",
+        "options": {
+          "queryReplacement": "={{ $('Rendez-vous de demain').item.json.appointment_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        464,
+        -32
+      ],
+      "id": "ab398bab-b524-40ce-bab2-e9b505bf0c30",
+      "name": "Marquer rappel envoyé",
+      "credentials": {
+        "postgres": {
+          "id": "0uvSJk0SEveemZVi",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Rendez-vous de demain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rendez-vous de demain": {
+      "main": [
+        [
+          {
+            "node": "Envoyer le rappel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envoyer le rappel": {
+      "main": [
+        [
+          {
+            "node": "Marquer rappel envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "244cf98e-5bf2-43a8-9c23-3ab6d95f036e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b1be4d8603b187707c8b06626c67440c802cfb2dfa0523bff360318e9b08e739"
+  },
+  "nodeGroups": [],
+  "id": "dmmRnjADFyIvMXAS",
+  "tags": []
+}
