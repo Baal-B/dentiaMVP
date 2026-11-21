@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useActingId } from './useActingId'
 import { fmtDate } from '../../lib/format'
@@ -17,6 +17,8 @@ export default function SecretaryPatients() {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [editId, setEditId] = useState(null)
+const [draft, setDraft] = useState(null)
 
   const shown = list.filter((p) => norm(`${p.last_name} ${p.first_name} ${p.phone ?? ''}`).includes(norm(q).trim()))
   const pager = usePager(shown, 10)
@@ -45,6 +47,29 @@ export default function SecretaryPatients() {
     if (error) return setError(error.message)
     setForm(EMPTY); setAdding(false); load()
   }
+
+  function startEdit(p) {
+  setError('')
+  setEditId(p.id)
+  setDraft({
+    first_name: p.first_name, last_name: p.last_name, birth_date: p.birth_date ?? '',
+    sex: p.sex ?? '', phone: p.phone ?? '', email: p.email ?? '',
+  })
+}
+const setD = (k) => (e) => setDraft({ ...draft, [k]: e.target.value })
+
+async function saveEdit(e) {
+  e.preventDefault()
+  setBusy(true); setError('')
+  const { error } = await supabase.from('patients_basic').update({
+    first_name: draft.first_name.trim(), last_name: draft.last_name.trim(),
+    birth_date: draft.birth_date || null, sex: draft.sex || null,
+    phone: draft.phone.trim() || null, email: draft.email.trim() || null,
+  }).eq('id', editId)
+  setBusy(false)
+  if (error) return setError(error.message)
+  setEditId(null); setDraft(null); load()
+}
 
   return (
     <>
@@ -109,18 +134,59 @@ export default function SecretaryPatients() {
         ) : (
           <>
             <table className="clinic-table">
-              <thead><tr><th>Nom</th><th>Naissance</th><th>Téléphone</th><th>E-mail</th></tr></thead>
-              <tbody>
-                {pager.slice.map((p) => (
-                  <tr key={p.id}>
-                    <td className="clinic-patient-name">{p.last_name} {p.first_name}</td>
-                    <td>{p.birth_date ? fmtDate(p.birth_date) : '—'}</td>
-                    <td>{p.phone || '—'}</td>
-                    <td>{p.email || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+  <thead><tr><th>Nom</th><th>Naissance</th><th>Téléphone</th><th>E-mail</th><th></th></tr></thead>
+  <tbody>
+    {pager.slice.map((p) => (
+      <Fragment key={p.id}>
+        <tr>
+          <td className="clinic-patient-name">{p.last_name} {p.first_name}</td>
+          <td>{p.birth_date ? fmtDate(p.birth_date) : '—'}</td>
+          <td>{p.phone || '—'}</td>
+          <td>{p.email || '—'}</td>
+          <td><button className="clinic-btn clinic-btn-ghost" onClick={() => startEdit(p)}>Modifier</button></td>
+        </tr>
+        {editId === p.id && draft && (
+          <tr>
+            <td colSpan={5}>
+              <form onSubmit={saveEdit} className="clinic-form-grid">
+                <div className="clinic-field clinic-col-6">
+                  <label htmlFor="e_first">Prénom</label>
+                  <input id="e_first" className="clinic-input" value={draft.first_name} onChange={setD('first_name')} required />
+                </div>
+                <div className="clinic-field clinic-col-6">
+                  <label htmlFor="e_last">Nom</label>
+                  <input id="e_last" className="clinic-input" value={draft.last_name} onChange={setD('last_name')} required />
+                </div>
+                <div className="clinic-field clinic-col-6">
+                  <label htmlFor="e_birth">Naissance</label>
+                  <input id="e_birth" className="clinic-input" type="date" value={draft.birth_date} onChange={setD('birth_date')} />
+                </div>
+                <div className="clinic-field clinic-col-6">
+                  <label htmlFor="e_sex">Sexe</label>
+                  <select id="e_sex" className="clinic-input" value={draft.sex} onChange={setD('sex')}>
+                    <option value="">—</option><option value="F">F</option><option value="M">M</option><option value="other">Autre</option>
+                  </select>
+                </div>
+                <div className="clinic-field clinic-col-6">
+                  <label htmlFor="e_phone">Téléphone</label>
+                  <input id="e_phone" className="clinic-input" value={draft.phone} onChange={setD('phone')} />
+                </div>
+                <div className="clinic-field clinic-col-6">
+                  <label htmlFor="e_email">E-mail</label>
+                  <input id="e_email" className="clinic-input" type="email" value={draft.email} onChange={setD('email')} />
+                </div>
+                <div className="clinic-col-12" style={{ display: 'flex', gap: 10 }}>
+                  <button className="clinic-btn clinic-btn-primary" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer'}</button>
+                  <button type="button" className="clinic-btn clinic-btn-ghost" onClick={() => { setEditId(null); setDraft(null) }}>Annuler</button>
+                </div>
+              </form>
+            </td>
+          </tr>
+        )}
+      </Fragment>
+    ))}
+  </tbody>
+</table>
             <Pager pager={pager} />
           </>
         )}

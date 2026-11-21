@@ -169,19 +169,23 @@ def create_analysis(body: AnalysisRequest, user=Depends(current_user)):
 
 class AssistantRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
-    patient_id: str
+    patient_id: str | None = None          # None = general question
     radiograph_id: str | None = None
     top_k: int = Field(default=3, ge=1, le=8)
 
 
 @app.post("/assistant")
+@app.post("/assistant")
 def ask_assistant(body: AssistantRequest, user=Depends(current_user)):
     # ownership checks (this client bypasses RLS)
-    patient = (sb.table("patients").select("id")
-               .eq("id", body.patient_id).eq("doctor_id", user.id).limit(1).execute())
-    if not patient.data:
-        raise HTTPException(404, "Patient not found")
+    if body.patient_id:
+        patient = (sb.table("patients").select("id")
+                   .eq("id", body.patient_id).eq("doctor_id", user.id).limit(1).execute())
+        if not patient.data:
+            raise HTTPException(404, "Patient not found")
     if body.radiograph_id:
+        if not body.patient_id:
+            raise HTTPException(400, "radiograph_id requires patient_id")
         rg = (sb.table("radiographs").select("id")
               .eq("id", body.radiograph_id).eq("doctor_id", user.id)
               .eq("patient_id", body.patient_id).limit(1).execute())
@@ -238,47 +242,7 @@ def ask_assistant(body: AssistantRequest, user=Depends(current_user)):
     except Exception as e:
         raise HTTPException(500, f"Could not save the search: {e}")
     return saved.data[0]
-    # ownership checks (this client bypasses RLS)
-    patient = (sb.table("patients").select("id")
-               .eq("id", body.patient_id).eq("doctor_id", user.id).limit(1).execute())
-    if not patient.data:
-        raise HTTPException(404, "Patient not found")
-    if body.radiograph_id:
-        rg = (sb.table("radiographs").select("id")
-              .eq("id", body.radiograph_id).eq("doctor_id", user.id)
-              .eq("patient_id", body.patient_id).limit(1).execute())
-        if not rg.data:
-            raise HTTPException(404, "Radiograph not found")
-
-    try:
-        r = httpx.post(f"{RAG_URL}/search", json={"query": body.question, "top_k": 3}, timeout=30)
-        r.raise_for_status()
-        data = r.json()
-    except httpx.HTTPError:
-        raise HTTPException(502, "Literature search unavailable")
-
-    # Copy of each source at the time of the question (a saved report must never depend on the RAG index)
-    citations = [
-        {"n": i + 1, "title": x["title"], "authors": x["authors"], "journal": x["journal"],
-         "year": x["year"], "doi": x["doi"], "url": x["url"], "passage": x["passage"]}
-        for i, x in enumerate(data["results"])
-    ]
-    insufficient = data["insufficient_evidence"]
-    # No LLM yet: the "answer" is just the retrieved passages, numbered. Nothing is generated.
-    answer = "" if insufficient else "\n".join(f"[{c['n']}] {c['passage']}" for c in citations)
-
-    row = {
-        "doctor_id": user.id,
-        "patient_id": body.patient_id,
-        "question": body.question.strip(),
-        "answer": answer,
-        "citations": citations,
-        "insufficient_evidence": insufficient,
-    }
-    if body.radiograph_id:
-        row["radiograph_id"] = body.radiograph_id
-    saved = sb.table("assistant_queries").insert(row).execute()
-    return saved.data[0]
+    
 
 class DraftRequest(BaseModel):
     report_id: str

@@ -38,6 +38,7 @@ export default function Analysis() {
   const [step, setStep] = useState('')
   const [error, setError] = useState('')
   const [answer, setAnswer] = useState([])
+  const [useLit, setUseLit] = useState(false)   
   const [topK, setTopK] = useTopK()
 
   async function load() {
@@ -71,7 +72,8 @@ export default function Analysis() {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
   const byId = Object.fromEntries(patients.map((p) => [p.id, p]))
   const symptoms = form.symptoms.trim()
-  const canSubmit = form.patient_id && (file || symptoms)
+  const searchLit = !!symptoms && useLit
+const canSubmit = form.patient_id && (file || searchLit)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -123,8 +125,8 @@ export default function Analysis() {
     }
 
     let query = null
-    if (symptoms) {
-      setStep('Recherche dans la littérature…')
+    if (searchLit) {
+  setStep('Recherche dans la littérature…')
       try {
           query = await api('/assistant', {
           method: 'POST',
@@ -145,10 +147,10 @@ export default function Analysis() {
     }
   }
 
-  const buttonText = file && symptoms ? 'Analyser et rechercher'
-    : file ? 'Analyser la radiographie'
-    : symptoms ? 'Rechercher dans la littérature'
-    : 'Continuer'
+  const buttonText = file && searchLit ? 'Analyser et rechercher'
+  : file ? 'Analyser la radiographie'
+  : searchLit ? 'Rechercher dans la littérature'
+  : 'Continuer'
 
   return (
     <>
@@ -207,8 +209,23 @@ export default function Analysis() {
               </div>
 
               <div className="clinic-col-12">
-                <TopKSelect value={topK} onChange={setTopK} />
-              </div>
+  <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+    <input type="checkbox" checked={useLit} onChange={(e) => setUseLit(e.target.checked)}
+      style={{ marginTop: 4 }} />
+    <span>
+      <strong>Rechercher dans la littérature scientifique</strong>
+      <span style={{ display: 'block', color: 'var(--clinic-muted)', fontSize: 14 }}>
+        Utilise les symptômes saisis pour chercher des sources et générer un résumé. Désactivé par défaut.
+      </span>
+    </span>
+  </label>
+</div>
+
+              {useLit && (
+  <div className="clinic-col-12">
+    <TopKSelect value={topK} onChange={setTopK} />
+  </div>
+)}
 
               <div className="clinic-col-12">
                 <button type="submit" className="clinic-btn clinic-btn-primary" disabled={busy || !canSubmit}>
@@ -216,7 +233,7 @@ export default function Analysis() {
                 </button>
                 {!canSubmit && form.patient_id && (
                   <span style={{ marginLeft: 12, color: 'var(--clinic-muted)', fontSize: 15 }}>
-                    Ajoutez au moins une radiographie ou des symptômes.
+                    Ajoutez une radiographie, ou des symptômes avec la recherche bibliographique cochée.
                   </span>
                 )}
               </div>

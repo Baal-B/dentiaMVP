@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { APPT_STATUS } from '../../lib/labels'
 import Pager from '../../components/Pager'
 import { usePager } from '../../lib/usePager'
+import { displayStatus, isPast } from '../../lib/apptStatus'
 
 const day = (iso) => new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 const hm = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -65,7 +66,7 @@ export default function SecretaryAgenda() {
                 <tbody>
                   {g.items.map((a) => {
                     const p = patients[a.patient_id]
-                    const s = APPT_STATUS[a.status]
+                    const s = displayStatus(a, APPT_STATUS)
                     return (
                       <tr key={a.id}>
                         <td>{hm(a.starts_at)} – {hm(a.ends_at)}</td>

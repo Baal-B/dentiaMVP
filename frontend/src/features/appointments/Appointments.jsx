@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { fmtDateTime, fullName } from '../../lib/format'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
+import { displayStatus, isPast } from '../../lib/apptStatus'
 
 
 const STATUS = {
@@ -75,6 +76,12 @@ const [form, setForm] = useState({ ...emptyForm, patient_id: params.get('patient
     if (error) setError(error.message)
     else load()
   }
+
+  async function setStatus(id, status) {
+  const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
+  if (error) setError(error.message)
+  else load()
+}
 
   return (
     <>
@@ -151,7 +158,7 @@ const [form, setForm] = useState({ ...emptyForm, patient_id: params.get('patient
             </thead>
             <tbody>
               {appts.map((a) => {
-                const s = STATUS[a.status]
+                const s = displayStatus(a, STATUS)
                 return (
                   <tr key={a.id}>
                     <td>{fmtDateTime(a.starts_at)}</td>
@@ -159,11 +166,14 @@ const [form, setForm] = useState({ ...emptyForm, patient_id: params.get('patient
                     <td style={{ color: 'var(--clinic-muted)' }}>{a.reason || '—'}</td>
                     <td><span className={`clinic-pill ${s.cls}`}>{s.text}</span></td>
                     <td>
-                      {a.status === 'scheduled' && (
-                        <button className="clinic-btn clinic-btn-ghost" onClick={() => cancel(a.id)}>
-                          Annuler
-                        </button>
-                      )}
+                      {a.status === 'scheduled' && (isPast(a) ? (
+  <>
+    <button className="clinic-btn clinic-btn-ghost" onClick={() => setStatus(a.id, 'completed')}>Terminé</button>
+    <button className="clinic-btn clinic-btn-ghost" onClick={() => setStatus(a.id, 'no_show')}>Absent</button>
+  </>
+) : (
+  <button className="clinic-btn clinic-btn-ghost" onClick={() => cancel(a.id)}>Annuler</button>
+))}
                     </td>
                   </tr>
                 )

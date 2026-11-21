@@ -16,6 +16,7 @@ const nav = [
   { to: '/patients', label: 'Patients', icon: Users },
   { to: '/analysis', label: 'Nouvelle analyse', icon: Scan },
   { to: '/appointments', label: 'Rendez-vous', icon: CalendarDays },
+  { to: '/assistant', label: 'Assistant clinique', icon: MessageSquare },
   { to: '/reports', label: 'Rapports', icon: FileText },
   { to: '/prescriptions', label: 'Ordonnances', icon: Pill },
   { to: '/notifications', label: 'Notifications', icon: Bell, badge: true },
@@ -23,11 +24,7 @@ const nav = [
 { to: '/requests', label: 'Demandes', icon: Inbox },
 ]
 
-const soon = [
-  { label: 'Assistant clinique', icon: MessageSquare },
-  
- 
-]
+
 
 export default function AppLayout() {
   const { user, profile, signOut } = useAuth()
@@ -63,13 +60,7 @@ export default function AppLayout() {
             </NavLink>
           ))}
 
-          <div className="clinic-nav-section">Bientôt</div>
-          {soon.map(({ label, icon: Icon }) => (
-            <span key={label} className="clinic-nav-link disabled" title="Pas encore disponible">
-              <Icon size={20} />
-              <span className="clinic-nav-label">{label}</span>
-            </span>
-          ))}
+          
         </nav>
 
         <div className="clinic-sidebar-user">

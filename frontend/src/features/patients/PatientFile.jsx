@@ -7,6 +7,7 @@ import { KINDS, statusLabel, APPT_STATUS, REPORT_STATUS } from '../../lib/labels
 import AssistantPanel from '../analysis/AssistantPanel'
 import Pager from '../../components/Pager'
 import { usePager } from '../../lib/usePager'
+import { displayStatus, isPast } from '../../lib/apptStatus'
 
 function ageOf(birth) {
   if (!birth) return null
@@ -52,7 +53,7 @@ export default function PatientFile() {
         .select('id, kind, taken_at, created_at, storage_path, symptoms')
         .eq('patient_id', id).order('created_at', { ascending: false }),
       supabase.from('appointments')
-        .select('id, starts_at, status, reason')
+        .select('id, starts_at, ends_at, status, reason')
         .eq('patient_id', id).order('starts_at', { ascending: false }),
       supabase.from('reports')
         .select('id, title, status, created_at, signed_at')
@@ -123,6 +124,12 @@ export default function PatientFile() {
     setDraft(null)
     load()
   }
+
+  async function setApptStatus(apptId, status) {
+  const { error } = await supabase.from('appointments').update({ status }).eq('id', apptId)
+  if (error) return setError(error.message)
+  load()
+}
 
   const setD = (k) => (e) => setDraft({ ...draft, [k]: e.target.value })
 
@@ -280,14 +287,22 @@ export default function PatientFile() {
               <table className="clinic-table">
                 <tbody>
                   {apptPager.slice.map((a) => {
-                    const s = APPT_STATUS[a.status]
-                    return (
-                      <tr key={a.id}>
-                        <td>{fmtDateTime(a.starts_at)}</td>
-                        <td style={{ color: 'var(--clinic-muted)' }}>{a.reason || '—'}</td>
-                        <td><span className={`clinic-pill ${s.cls}`}>{s.text}</span></td>
-                      </tr>
-                    )
+                    const s = displayStatus(a, APPT_STATUS)
+return (
+  <tr key={a.id}>
+    <td>{fmtDateTime(a.starts_at)}</td>
+    <td style={{ color: 'var(--clinic-muted)' }}>{a.reason || '—'}</td>
+    <td><span className={`clinic-pill ${s.cls}`}>{s.text}</span></td>
+    <td>
+      {a.status === 'scheduled' && isPast(a) && (
+        <>
+          <button className="clinic-btn clinic-btn-ghost" onClick={() => setApptStatus(a.id, 'completed')}>Terminé</button>
+          <button className="clinic-btn clinic-btn-ghost" onClick={() => setApptStatus(a.id, 'no_show')}>Absent</button>
+        </>
+      )}
+    </td>
+  </tr>
+)
                   })}
                 </tbody>
               </table>
