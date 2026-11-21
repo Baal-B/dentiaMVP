@@ -61,7 +61,12 @@ def retrieve(question: str, k: int = 5, min_score: float = DEFAULT_MIN_SCORE, po
         hit["label"] = f"[{rank}]"
         name = meta.get("title") or meta.get("doc")
         page = meta.get("page")
-        hit["citation"] = f"{name}, p.{page}" if page else str(name)
+        if page:
+            hit["citation"] = f"{name}, p.{page}"
+        else:                                           # articles and web pages have no page number
+            ident = f"PMID {meta['pmid']}" if meta.get("pmid") else (f"DOI {meta['doi']}" if meta.get("doi") else "")
+            section = f", section '{meta['section']}'" if meta.get("section") else ""
+            hit["citation"] = f"{name}{section}" + (f" ({ident})" if ident else "")
         hit["source_file"] = meta.get("doc")
         hit["page"] = page
     return selected
@@ -85,11 +90,12 @@ def main() -> None:
     parser.add_argument("--doc")
     parser.add_argument("--org")
     parser.add_argument("--year")
+    parser.add_argument("--evidence", help="evidence type(s), e.g. guideline,systematic_review")
     parser.add_argument("--show-all", action="store_true",
                         help="also show the candidates that were rejected, with the reason")
     args = parser.parse_args()
 
-    where = make_filter(args.doc, args.org, args.year)
+    where = make_filter(args.doc, args.org, args.year, args.evidence)
     hits = retrieve(args.question, args.k, args.min_score, args.pool, args.max_per_page, where)
 
     print(f"Question: {args.question}")

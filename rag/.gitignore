@@ -15,3 +15,12 @@ chroma_db/
 # Model files
 *.gguf
 sections.txt
+
+data/registry.csv
+data/manifest_collected.csv
+backup_before_v3/
+check_*.py
+make_manual_manifest.py
+sections_manual.txt
+
+eval/results/

@@ -4,7 +4,7 @@ STEP 6 - CITATIONS AND AUTOMATIC CHECK: never trust the model, verify it.
 A small model often writes the right fact with the WRONG passage number, or an empty
 answer, or a number that is not in the document. This module checks the answer:
 
-    1. EMPTY answer (only "[1]" or a few letters)      -> status "failed" (the caller retries)
+    1. EMPTY or LOOPING answer ("[1]", or one sentence repeated) -> status "failed" (the caller retries)
     2. "NOT FOUND" answer                              -> status "not_found" (no sources shown)
     3. for every sentence of the answer:
          - the cited passage must exist ([7] when there are 5 passages = invalid),
@@ -19,6 +19,7 @@ answer, or a number that is not in the document. This module checks the answer:
 The thresholds below are STARTING VALUES. We tune them in Step 7 with real questions.
 
 Statuses: ok | corrected | unverified | not_found | failed
+("unverified" = a sentence is unsupported, or had no citation from the model, or has a number that is not in the passage)
 """
 
 import re
@@ -44,6 +45,32 @@ def is_empty(answer: str) -> bool:
 
 def is_not_found(answer: str) -> bool:
     return bool(NOT_FOUND.search(answer)) and len(answer) < 300
+
+
+def normalize_sentence(sentence: str) -> str:
+    return re.sub(r"\W+", " ", CITE.sub("", sentence).lower()).strip()
+
+
+def is_degenerate(answer: str) -> bool:
+    """A small model sometimes repeats the same sentence again and again. Detect it."""
+    sentences = [normalize_sentence(x) for x in split_sentences(answer)]
+    sentences = [x for x in sentences if x]
+    return len(sentences) >= 4 and len(set(sentences)) / len(sentences) < 0.7
+
+
+STOP_WORDS = set("""with that this from have been should would could there their which when where while than then
+also only more most such other into over under about after before these those some each both what will does
+used use uses using may can must need needs needed given give gives based according guideline guidelines
+passage passages recommended recommends recommendation recommendations suggested suggests considered
+consider patient patients answer answers sentence include includes included including""".split())
+
+
+def unseen_terms(sentence: str, passages: list[str]) -> list[str]:
+    """Words of the sentence (4+ letters) that do not appear in the cited passages (English only).
+    Information for the dentist, not a verdict: it would flag 'pain' in 'alveolar pain'."""
+    seen = {w[:4] for text in passages for w in re.findall(r"[a-z]{4,}", text.lower())}
+    words = re.findall(r"[a-z]{4,}", CITE.sub("", sentence).lower())
+    return sorted({w for w in words if w not in STOP_WORDS and w[:4] not in seen})
 
 
 def split_sentences(answer: str) -> list[str]:
@@ -77,8 +104,10 @@ def number_in_text(number: str, text: str) -> bool:
 
 
 def verify(answer: str, hits: list[dict], sentence_vectors: list[list[float]] | None,
-           chunk_vectors: list[list[float]], sentences: list[str] | None = None) -> dict:
-    """Pure logic (no network). sentence_vectors must match split_sentences(answer)."""
+           chunk_vectors: list[list[float]], sentences: list[str] | None = None,
+           english: bool = False) -> dict:
+    """Pure logic (no network). sentence_vectors must match split_sentences(answer).
+    english=True: also list the words that are not in the cited passages."""
     sentences = sentences if sentences is not None else split_sentences(answer)
     checks, rebuilt, used = [], [], set()
     n_claims = n_supported = 0
@@ -117,19 +146,23 @@ def verify(answer: str, hits: list[dict], sentence_vectors: list[list[float]] | 
             status = "corrected" if invalid else "ok"
 
         if final:
-            n_supported += 1 if not any(i.startswith("number") for i in issues) else 0
+            if status != "added" and not any(i.startswith("number") for i in issues):
+                n_supported += 1
             used.update(final)
             flag = " [?]" if any(i.startswith("number") for i in issues) else ""
             rebuilt.append(text + " " + "".join(f"[{c}]" for c in final) + flag)
         else:
             rebuilt.append(text + " [?]")
+        unseen = unseen_terms(text, [hits[c - 1]["text"] for c in final]) if (english and final) else []
         checks.append({"sentence": text, "cited": cited_all, "final": final, "status": status,
-                       "best": best, "best_similarity": round(sims[best - 1], 3), "issues": issues})
+                       "best": best, "best_similarity": round(sims[best - 1], 3), "issues": issues,
+                       "unseen_terms": unseen})
 
     statuses = {c["status"] for c in checks}
     if not checks:
         overall = "unverified"
-    elif "unsupported" in statuses or any(c["issues"] and any(i.startswith("number") for i in c["issues"]) for c in checks):
+    elif ("unsupported" in statuses or "added" in statuses       # "added": the model gave no citation
+          or any(i.startswith("number") for c in checks for i in c["issues"])):
         overall = "unverified"
     elif statuses <= {"ok"}:
         overall = "ok"
@@ -147,13 +180,14 @@ def chunk_vectors_for(hits: list[dict], collection) -> list[list[float]]:
     return [list(map(float, by_id[h["id"]])) for h in hits]
 
 
-def verify_answer(answer: str, hits: list[dict], collection, model: str, url: str) -> dict:
+def verify_answer(answer: str, hits: list[dict], collection, model: str, url: str,
+                  english: bool = False) -> dict:
     """Full check: embeds the sentences with Ollama, compares them with the passages."""
-    if is_empty(answer):
+    if is_empty(answer) or is_degenerate(answer):
         return {"status": "failed", "answer": answer, "checks": [], "sources_used": [], "citation_score": 0.0}
     if is_not_found(answer):
         return {"status": "not_found", "answer": answer, "checks": [], "sources_used": [], "citation_score": 1.0}
     sentences = split_sentences(answer)
     cleaned = [re.sub(r"\s+", " ", CITE.sub("", s)).strip() or s for s in sentences]
     sentence_vectors = embed_texts(cleaned, model, url)
-    return verify(answer, hits, sentence_vectors, chunk_vectors_for(hits, collection), sentences)
+    return verify(answer, hits, sentence_vectors, chunk_vectors_for(hits, collection), sentences, english)

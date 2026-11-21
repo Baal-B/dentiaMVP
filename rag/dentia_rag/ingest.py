@@ -45,7 +45,9 @@ from pathlib import Path
 def normalize_unicode(text: str) -> str:
     """NFKC turns ligatures into normal letters: the ligature fi becomes the two letters f + i."""
     text = unicodedata.normalize("NFKC", text)
-    return text.replace("\u00ad", "")  # remove invisible soft hyphens
+    text = text.replace("\u00ad", "")                           # invisible soft hyphens
+    text = re.sub(r"[\u200b\u200c\u200d\u2060\ufeff]", "", text)   # zero-width characters (they cut words and URLs)
+    return re.sub(r"[\ue000-\uf8ff]", "- ", text)              # private-use symbols = bullets of the PDF font
 
 
 def clean_text(text: str) -> str:
@@ -285,7 +287,7 @@ def read_manifest(path: Path) -> dict[str, dict]:
     if not path.exists():
         return {}
     with open(path, encoding="utf-8-sig", newline="") as f:
-        return {row["file"].strip(): row for row in csv.DictReader(f) if row.get("file")}
+        return {row["file"].strip().replace("\\", "/"): row for row in csv.DictReader(f) if row.get("file")}
 
 
 def ingest_file(path: Path, corpus: Path, meta: dict, args, excluded_cli: set[int]) -> list[dict]:
@@ -297,7 +299,7 @@ def ingest_file(path: Path, corpus: Path, meta: dict, args, excluded_cli: set[in
     }
     units = LOADERS[ext](path, options)
 
-    name = str(path.relative_to(corpus))
+    name = path.relative_to(corpus).as_posix()          # always "/" (same on Windows and Linux)
     chunks = []
     for unit_index, unit in enumerate(units):
         locator = f"p{unit['page']}" if unit["page"] else f"s{unit_index}"
@@ -314,6 +316,10 @@ def ingest_file(path: Path, corpus: Path, meta: dict, args, excluded_cli: set[in
                 "page": unit["page"],
                 "section": unit["section"],
                 "chunk_index": i,
+                "evidence_type": (meta.get("evidence_type") or "").strip(),
+                "doi": (meta.get("doi") or "").strip(),
+                "pmid": (meta.get("pmid") or "").strip(),
+                "url": (meta.get("url") or "").strip(),
                 "text": text,
             })
     print(f"  -> {len(chunks)} chunks")
@@ -324,8 +330,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Any documents -> chunks.jsonl")
     parser.add_argument("--corpus", default="corpus", help="folder with your documents")
     parser.add_argument("--out", default="chunks.jsonl", help="output file")
-    parser.add_argument("--manifest", default=None,
-                        help="CSV file (default: <corpus>/manifest.csv)")
+    parser.add_argument("--manifest", action="append", default=None,
+                        help="CSV file (default: <corpus>/manifest.csv). You can repeat this option "
+                             "to read several manifests (your own + the one made by collect.py)")
     parser.add_argument("--max-chars", type=int, default=1000)
     parser.add_argument("--overlap", type=int, default=200)
     parser.add_argument("--min-chars", type=int, default=50,
@@ -339,7 +346,9 @@ def main() -> None:
     args = parser.parse_args()
 
     corpus = Path(args.corpus)
-    manifest = read_manifest(Path(args.manifest) if args.manifest else corpus / "manifest.csv")
+    manifest: dict[str, dict] = {}
+    for manifest_path in (args.manifest or [str(corpus / "manifest.csv")]):
+        manifest.update(read_manifest(Path(manifest_path)))      # later files win
     excluded_cli: dict[str, set[int]] = {}
     for item in args.exclude:
         name, _, spec = item.partition(":")
@@ -353,16 +362,20 @@ def main() -> None:
     if not supported:
         raise SystemExit(f"No supported file in '{corpus}'. Supported: {sorted(LOADERS)}")
 
-    for p in supported:                               # help the user keep the manifest complete
-        if manifest and str(p.relative_to(corpus)) not in manifest:
-            print(f"note: {p.name} is not in the manifest (title/organization will be empty)")
-    for name in manifest:
-        if not (corpus / name).exists():
-            print(f"note: manifest lists '{name}' but the file does not exist")
+    missing_meta = [p for p in supported if manifest and p.relative_to(corpus).as_posix() not in manifest]
+    for p in missing_meta[:10]:                       # help the user keep the manifest complete
+        print(f"note: {p.name} is not in the manifest (title/organization will be empty)")
+    if len(missing_meta) > 10:
+        print(f"note: ... and {len(missing_meta) - 10} more files are not in the manifest")
+    missing_files = [name for name in manifest if not (corpus / name).exists()]
+    for name in missing_files[:10]:
+        print(f"note: manifest lists '{name}' but the file does not exist")
+    if len(missing_files) > 10:
+        print(f"note: ... and {len(missing_files) - 10} more manifest rows have no file")
 
     all_chunks: list[dict] = []
     for path in supported:
-        key = str(path.relative_to(corpus))
+        key = path.relative_to(corpus).as_posix()
         print(f"Reading {key} ...")
         all_chunks.extend(ingest_file(path, corpus, manifest.get(key, {}), args,
                                       excluded_cli.get(path.name, set())))
