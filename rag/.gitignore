@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets: never commit these
+.env
+
+# Data we do NOT commit (copyright/licenses, size, can be rebuilt)
+data/corpus/*
+!data/corpus/.gitkeep
+data/processed/
+chroma_db/
+
+# Model files
+*.gguf
+sections.txt
+
+data/registry.csv
+data/manifest_collected.csv
+backup_before_v3/
+check_*.py
+make_manual_manifest.py
+sections_manual.txt
+
+eval/results/

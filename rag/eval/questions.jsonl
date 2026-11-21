@@ -1,0 +1,8 @@
+{"id": "q01", "question": "How do I test if the pulp of a tooth is vital?", "answerable": true, "expected": [{"doc": "01HEN35WFCSEYXXEWMHBMM28YG.pdf", "pages": [25]}], "must_include": ["cold", "electric"]}
+{"id": "q02", "question": "Should I give antibiotics before wisdom tooth surgery?", "answerable": true, "expected": [{"doc": "3rd-molar-guidelines--April-2021-v2.pdf", "pages": [64, 65]}], "must_include": ["immunocompromised", "alveolar osteitis"]}
+{"id": "q03", "question": "Faut-il donner des antibiotiques avant l'extraction d'une dent de sagesse ?", "answerable": true, "expected": [{"doc": "3rd-molar-guidelines--April-2021-v2.pdf", "pages": [64, 65]}], "must_include": ["immunocompromised", "alveolar osteitis"]}
+{"id": "q04", "question": "Is there evidence that antibiotics prevent complications after third molar removal?", "answerable": true, "expected": [{"doc": "3rd-molar-guidelines--April-2021-v2.pdf", "pages": [42]}], "must_include": ["limited"]}
+{"id": "q05", "question": "What does NICE recommend about removing healthy impacted wisdom teeth?", "answerable": true, "expected": [{"doc": "guidance-on-the-extraction-of-wisdom-teeth-pdf-63732983749.pdf", "pages": [15, 4]}], "must_include": ["should not"]}
+{"id": "q06", "question": "Is pulp sensibility testing the same as vitality testing?", "answerable": true, "expected": [{"doc": "784_2025_Article_6727.pdf", "pages": [15]}], "must_include": ["blood flow"]}
+{"id": "q07", "question": "recette de gateau au chocolat", "answerable": false}
+{"id": "q08", "question": "What is the best orthodontic bracket for a Class II malocclusion?", "answerable": false}
