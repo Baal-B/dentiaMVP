@@ -24,3 +24,6 @@ make_manual_manifest.py
 sections_manual.txt
 
 eval/results/
+
+chroma_db_old/
+*_log*.txt
