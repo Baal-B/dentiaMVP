@@ -29,12 +29,20 @@ from dentia_rag.store import get_collection, make_filter, search
 
 DEFAULT_MIN_SCORE = 0.50     # tuned later with the evaluation (Step 7)
 
+# Evidence hierarchy: when two passages are about equally close to the question, the one from a
+# guideline should come before a single study. The bonus ONLY changes the ORDER; the minimum
+# score is still checked on the real cosine score. Turn it off with boost=False to compare.
+EVIDENCE_BONUS = {"guideline": 0.04, "systematic_review": 0.03, "rct": 0.01, "review": 0.01,
+                  "article": 0.0, "case_report": -0.01}
+
 
 def retrieve(question: str, k: int = 5, min_score: float = DEFAULT_MIN_SCORE, pool: int = 20,
              max_per_page: int = 2, where=None, collection=None,
-             model: str | None = None, url: str | None = None) -> list[dict]:
+             model: str | None = None, url: str | None = None, boost: bool | None = None) -> list[dict]:
     """Return up to k relevant chunks, best first. May return an empty list."""
     load_env()
+    if boost is None:                                        # default ON; RAG_BOOST=0 turns it off
+        boost = os.environ.get("RAG_BOOST", "1") != "0"
     model = model or os.environ.get("EMBEDDING_MODEL", "bge-m3")
     url = url or os.environ.get("OLLAMA_URL", "http://localhost:11434")
     if collection is None:
@@ -42,11 +50,15 @@ def retrieve(question: str, k: int = 5, min_score: float = DEFAULT_MIN_SCORE, po
                                     os.environ.get("COLLECTION_NAME", "denti_documents"))
 
     candidates = search(question, collection, model, url, max(pool, k), where)
+    for hit in candidates:
+        bonus = EVIDENCE_BONUS.get(hit["meta"].get("evidence_type") or "", 0.0) if boost else 0.0
+        hit["rank_score"] = hit["score"] + bonus
+    candidates.sort(key=lambda h: h["rank_score"], reverse=True)
 
     selected, per_page = [], {}
-    for hit in candidates:                                   # already sorted, best first
+    for hit in candidates:
         if hit["score"] < min_score:
-            break                                            # all next ones are lower
+            continue                                         # real cosine score under the minimum
         page_key = (hit["meta"].get("doc"), hit["meta"].get("page"))
         if per_page.get(page_key, 0) >= max_per_page:
             continue
@@ -91,11 +103,14 @@ def main() -> None:
     parser.add_argument("--org")
     parser.add_argument("--year")
     parser.add_argument("--evidence", help="evidence type(s), e.g. guideline,systematic_review")
+    parser.add_argument("--no-boost", action="store_true", help="no priority for guidelines (to compare)")
     parser.add_argument("--show-all", action="store_true",
                         help="also show the candidates that were rejected, with the reason")
     args = parser.parse_args()
 
     where = make_filter(args.doc, args.org, args.year, args.evidence)
+    if args.no_boost:
+        os.environ["RAG_BOOST"] = "0"
     hits = retrieve(args.question, args.k, args.min_score, args.pool, args.max_per_page, where)
 
     print(f"Question: {args.question}")

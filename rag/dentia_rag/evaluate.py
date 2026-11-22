@@ -27,6 +27,13 @@ Question format (one JSON object per line):
    "must_include": ["cold", "electric"]}
   For a question that is NOT in the documents: {"id": "q9", "question": "...", "answerable": false}
 
+  A passage counts as CORRECT if it is in an "expected" document/page, OR if it contains ALL the
+  words of one group of "relevant_terms" (checked in lower case). This is fair to the big corpus:
+  an abstract that really answers the question is not a miss.
+   "relevant_terms": [["silver diamine fluoride", "caries"], ["sdf", "arrest"]]
+  (= correct if the passage has both words of the first group, or both words of the second one)
+  An answerable question needs "expected", "relevant_terms", or both.
+
 Run it:
     python -m dentia_rag.evaluate                       # retrieval only, seconds
     python -m dentia_rag.evaluate --generate            # full test, minutes
@@ -60,8 +67,8 @@ def load_questions(path: str) -> list[dict]:
             if key not in q:
                 raise SystemExit(f"{path} line {number}: missing '{key}'")
         q.setdefault("answerable", True)
-        if q["answerable"] and not q.get("expected"):
-            raise SystemExit(f"{path} line {number}: an answerable question needs 'expected'")
+        if q["answerable"] and not (q.get("expected") or q.get("relevant_terms")):
+            raise SystemExit(f"{path} line {number}: an answerable question needs 'expected' or 'relevant_terms'")
         questions.append(q)
     return questions
 
@@ -70,9 +77,17 @@ def matches(doc: str, page, expected: list[dict]) -> bool:
     return any(e["doc"] == doc and (not e.get("pages") or page in e["pages"]) for e in expected)
 
 
-def first_rank(hits: list[dict], expected: list[dict]) -> int | None:
+def is_relevant(hit: dict, q: dict) -> bool:
+    """A passage is correct if it is in an expected page, or contains all the words of a group."""
+    if matches(hit["source_file"], hit["page"], q.get("expected", [])):
+        return True
+    text = hit.get("text", "").lower()
+    return any(all(term.lower() in text for term in group) for group in q.get("relevant_terms", []))
+
+
+def first_rank(hits: list[dict], q: dict) -> int | None:
     for rank, hit in enumerate(hits, start=1):
-        if matches(hit["source_file"], hit["page"], expected):
+        if is_relevant(hit, q):
             return rank
     return None
 
@@ -102,7 +117,10 @@ def main() -> None:
     parser.add_argument("--limit", type=int, help="only the first N questions")
     parser.add_argument("--show-answers", action="store_true", help="print each answer")
     parser.add_argument("--out", default="eval/results", help="folder for the JSON report")
+    parser.add_argument("--no-boost", action="store_true", help="no priority for guidelines (to compare)")
     args = parser.parse_args()
+    if args.no_boost:
+        os.environ["RAG_BOOST"] = "0"
 
     questions = load_questions(args.questions)
     if args.limit:
@@ -121,11 +139,11 @@ def main() -> None:
         row["n_hits"] = len(hits)
         row["top"] = [f"{h['source_file']} p.{h['page']} ({h['score']:.3f})" for h in all_hits]
         row["top_score"] = round(all_hits[0]["score"], 3) if all_hits else None
-        row["rank"] = first_rank(hits, q["expected"]) if q["answerable"] else None
+        row["rank"] = first_rank(hits, q) if q["answerable"] else None
         row["correct_score"] = None
         if q["answerable"]:
             for h in all_hits:                       # score of the best correct passage, even below the threshold
-                if matches(h["source_file"], h["page"], q["expected"]):
+                if is_relevant(h, q):
                     row["correct_score"] = round(h["score"], 3)
                     break
 
@@ -140,12 +158,11 @@ def main() -> None:
             row["sources"] = [f"{h['source_file']} p.{h['page']}" for h in result["sources"]]
             if q["answerable"]:
                 row["citations_correct"] = bool(result["sources"]) and all(
-                    matches(h["source_file"], h["page"], q["expected"]) for h in result["sources"])
+                    is_relevant(h, q) for h in result["sources"])
                 row["keywords"] = keyword_share(result["answer"], q.get("must_include", []))
                 numbers = [int(n) for n in CITE.findall(result["raw_answer"])]
                 row["raw_citations_correct"] = bool(numbers) and all(
-                    1 <= n <= len(result["hits"]) and matches(result["hits"][n - 1]["source_file"],
-                                                              result["hits"][n - 1]["page"], q["expected"])
+                    1 <= n <= len(result["hits"]) and is_relevant(result["hits"][n - 1], q)
                     for n in numbers)
         rows.append(row)
 
@@ -195,7 +212,8 @@ def main() -> None:
                       "(the model, the check or a reranker must decide)")
         print("  (with few questions this is only an indication: add more questions)")
 
-    summary = {"questions": len(questions), "k": args.k, "min_score": args.min_score}
+    summary = {"questions": len(questions), "k": args.k, "min_score": args.min_score,
+               "boost": os.environ.get("RAG_BOOST", "1") != "0"}
     if args.generate:
         done = [r for r in rows if r["answerable"]]
         print("\n" + "=" * 60 + f"\nGENERATION (model {model})")

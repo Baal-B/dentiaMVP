@@ -40,6 +40,33 @@ from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
+# 0. Reference lists are not knowledge
+# ---------------------------------------------------------------------------
+# "JADA. 2017;148(12):878-886" = year;volume(issue):pages  -> the mark of a bibliography entry
+JOURNAL_CITATION = re.compile(r"\b(?:19|20)\d{2}\s*;\s*\d+\s*(?:\(\d+\))?\s*:\s*[\w.]+")
+DOI_MARK = re.compile(r"(?:\bdoi:?\s*|doi\.org/)10\.\d{4,9}/", re.IGNORECASE)   # a real DOI, not the word "doi"
+REFERENCE_STATS = {"removed": 0, "samples": []}
+
+
+def reference_score(text: str) -> tuple[int, int]:
+    """(number of journal citations, number of 'doi' marks) in a chunk."""
+    return len(JOURNAL_CITATION.findall(text)), len(DOI_MARK.findall(text))
+
+
+def looks_like_references(text: str) -> bool:
+    """True for a chunk that is mostly a list of bibliography entries (they match questions
+    by their words, but they contain no answer).
+    A bibliography is DENSE: one entry is about 150-250 characters. The header of an article
+    (journal name, doi, "how to cite") has 1-2 marks in a long text, so it is kept."""
+    citations, dois = reference_score(text)
+    if citations >= 3:
+        return True
+    if citations >= 2 and len(text) / citations <= 350:
+        return True
+    return dois >= 4 and len(text) / dois <= 300
+
+
+# ---------------------------------------------------------------------------
 # 1. Cleaning (same for every format)
 # ---------------------------------------------------------------------------
 def normalize_unicode(text: str) -> str:
@@ -306,6 +333,13 @@ def ingest_file(path: Path, corpus: Path, meta: dict, args, excluded_cli: set[in
         for i, text in enumerate(chunk_text(unit["text"], args.max_chars, args.overlap)):
             if len(text) < args.min_chunk_chars:      # a lone title carries no meaning
                 continue
+            if looks_like_references(text):           # a bibliography is not an answer
+                REFERENCE_STATS["removed"] += 1
+                if len(REFERENCE_STATS["samples"]) < 5:
+                    c_count, d_count = reference_score(text)
+                    REFERENCE_STATS["samples"].append(
+                        f"{name} {locator} [citations={c_count}, doi={d_count}, chars={len(text)}]: {text[:70]!r}")
+                continue
             chunks.append({
                 "id": f"{name}#{locator}#c{i}",
                 "doc": name,
@@ -401,6 +435,9 @@ def main() -> None:
     if unsupported:
         print(f"Files ignored  : {dict(unsupported)}  (no loader for these types yet)")
     print(f"Chunks         : {len(unique)}  (exact duplicates removed: {duplicates})")
+    print(f"Reference lists: {REFERENCE_STATS['removed']} chunks removed")
+    for sample in REFERENCE_STATS["samples"]:
+        print(f"    e.g. {sample}")
     if lengths:
         print(f"Chunk length   : min {min(lengths)} / average {sum(lengths)//len(lengths)} "
               f"/ max {max(lengths)} characters")
