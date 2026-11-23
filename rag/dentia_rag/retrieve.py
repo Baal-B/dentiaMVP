@@ -38,7 +38,7 @@ EVIDENCE_BONUS = {"guideline": 0.04, "systematic_review": 0.03, "rct": 0.01, "re
 
 def retrieve(question: str, k: int = 5, min_score: float = DEFAULT_MIN_SCORE, pool: int = 20,
              max_per_page: int = 2, where=None, collection=None,
-             model: str | None = None, url: str | None = None, boost: bool | None = None) -> list[dict]:
+             model: str | None = None, url: str | None = None, boost: bool | None = None, extra_queries: list[str] | None = None) -> list[dict]:
     """Return up to k relevant chunks, best first. May return an empty list."""
     load_env()
     if boost is None:                                        # default ON; RAG_BOOST=0 turns it off
@@ -50,6 +50,13 @@ def retrieve(question: str, k: int = 5, min_score: float = DEFAULT_MIN_SCORE, po
                                     os.environ.get("COLLECTION_NAME", "denti_documents"))
 
     candidates = search(question, collection, model, url, max(pool, k), where)
+    if extra_queries:                  # e.g. the English translation of a French question
+        best = {h["id"]: h for h in candidates}
+        for extra in extra_queries:
+            for h in search(extra, collection, model, url, max(pool, k), where):
+                if h["id"] not in best or h["score"] > best[h["id"]]["score"]:
+                    best[h["id"]] = h  # keep the best score of the same chunk
+        candidates = list(best.values())
     for hit in candidates:
         bonus = EVIDENCE_BONUS.get(hit["meta"].get("evidence_type") or "", 0.0) if boost else 0.0
         hit["rank_score"] = hit["score"] + bonus

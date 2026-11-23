@@ -18,3 +18,12 @@
 {"id": "q18", "question": "How do I repair a car engine?", "answerable": false}
 {"id": "q19", "question": "Who won the football world cup in 2018?", "answerable": false}
 {"id": "q20", "question": "What is the best treatment for a broken leg?", "answerable": false}
+{"id": "q21", "question": "Quand l'application de diamine d'argent est-elle recommandée pour arrêter les caries des dents temporaires ?", "answerable": true, "expected": [{"doc": "manual/g_sdf.pdf"}], "relevant_terms": [["silver diamine fluoride", "arrest"]], "must_include": ["arrest"]}
+{"id": "q22", "question": "Quel traitement pulpaire vital est recommandé pour une carie profonde sur une dent de lait ?", "answerable": true, "expected": [{"doc": "manual/s3.pdf"}], "relevant_terms": [["pulpotomy", "primary"]], "must_include": ["pulpotomy"]}
+{"id": "q23", "question": "Les scellements de sillons sont-ils recommandés chez les enfants ?", "answerable": true, "expected": [{"doc": "manual/piis0002817716304731-sealants-cpg.pdf"}], "relevant_terms": [["sealant", "caries"]], "must_include": ["sealant"]}
+{"id": "q24", "question": "Quel antibiotique choisir en première intention pour une infection dentaire ?", "answerable": true, "expected": [{"doc": "manual/Antibiotic-stewardship--balancing-patient-care-and.pdf", "pages": [3, 4]}], "relevant_terms": [["penicillin"]], "must_include": ["penicillin"]}
+{"id": "q25", "question": "Comment tester la vitalité pulpaire d'une dent ?", "answerable": true, "expected": [{"doc": "01HEN35WFCSEYXXEWMHBMM28YG.pdf", "pages": [25]}], "relevant_terms": [["pulp", "cold"], ["vitality", "electric"]], "must_include": ["cold", "electric"]}
+{"id": "q26", "question": "Le surfaçage radiculaire améliore-t-il la parodontite ?", "answerable": true, "relevant_terms": [["root planing"]], "must_include": ["scaling"]}
+{"id": "q27", "question": "Les implants dentaires fonctionnent-ils chez les patients diabétiques ?", "answerable": true, "relevant_terms": [["implant", "diabet"]], "must_include": ["diabet"]}
+{"id": "q28", "question": "Comment réparer un moteur de voiture ?", "answerable": false}
+{"id": "q29", "question": "Comment soigner une jambe cassée ?", "answerable": false}

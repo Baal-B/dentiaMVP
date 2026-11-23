@@ -1,0 +1,23 @@
+{"question": "Can I extract a tooth in a patient taking warfarin?", "in_scope": true}
+{"question": "Which antibiotic can I prescribe to a patient allergic to penicillin?", "in_scope": true}
+{"question": "Is it safe to use local anesthesia with adrenaline in a patient with high blood pressure?", "in_scope": true}
+{"question": "Should I stop bisphosphonates before a tooth extraction?", "in_scope": true}
+{"question": "How do I manage a patient with dental phobia?", "in_scope": true}
+{"question": "Is fluoride toothpaste safe for toddlers?", "in_scope": true}
+{"question": "What is the maximum dose of lidocaine for a child?", "in_scope": true}
+{"question": "Do I need antibiotic prophylaxis before scaling in a patient with a prosthetic heart valve?", "in_scope": true}
+{"question": "How long should I wait to place an implant after an extraction?", "in_scope": true}
+{"question": "Can burning mouth syndrome be treated?", "in_scope": true}
+{"question": "What is the best way to take a bitewing radiograph in a child?", "in_scope": true}
+{"question": "Quelle dose maximale de paracétamol pour une douleur dentaire chez l'adulte ?", "in_scope": true}
+{"question": "Un patient sous anticoagulants peut-il se faire extraire une dent ?", "in_scope": true}
+{"question": "Comment gérer une syncope d'un patient au cabinet dentaire ?", "in_scope": true}
+{"question": "What is the best treatment for a broken leg?", "in_scope": false}
+{"question": "How do I repair a car engine?", "in_scope": false}
+{"question": "How do I bake a chocolate cake?", "in_scope": false}
+{"question": "Who won the football world cup in 2018?", "in_scope": false}
+{"question": "What is the capital of France?", "in_scope": false}
+{"question": "How do I invest in the stock market?", "in_scope": false}
+{"question": "Comment soigner une jambe cassée ?", "in_scope": false}
+{"question": "Comment faire une tarte aux pommes ?", "in_scope": false}
+{"question": "Quel est le meilleur téléphone portable ?", "in_scope": false}

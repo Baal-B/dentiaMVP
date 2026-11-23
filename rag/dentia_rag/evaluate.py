@@ -50,6 +50,8 @@ from pathlib import Path
 
 from dentia_rag.cite import CITE
 from dentia_rag.embed import load_env
+from dentia_rag.generate import detect_language
+from dentia_rag.query import GATE_BELOW, expand_queries, in_scope
 from dentia_rag.retrieve import DEFAULT_MIN_SCORE, retrieve
 
 
@@ -118,9 +120,17 @@ def main() -> None:
     parser.add_argument("--show-answers", action="store_true", help="print each answer")
     parser.add_argument("--out", default="eval/results", help="folder for the JSON report")
     parser.add_argument("--no-boost", action="store_true", help="no priority for guidelines (to compare)")
+    parser.add_argument("--no-translate", action="store_true", help="no English translation of French questions")
+    parser.add_argument("--no-gate", action="store_true", help="no scope gate for off-topic questions")
     args = parser.parse_args()
     if args.no_boost:
         os.environ["RAG_BOOST"] = "0"
+    if args.no_translate:
+        os.environ["QUERY_TRANSLATION"] = "0"
+    if args.no_gate:
+        os.environ["SCOPE_GATE"] = "0"
+    use_translation = os.environ.get("QUERY_TRANSLATION", "1") != "0"
+    use_gate = os.environ.get("SCOPE_GATE", "1") != "0"
 
     questions = load_questions(args.questions)
     if args.limit:
@@ -134,8 +144,16 @@ def main() -> None:
     for q in questions:
         row = {"id": q["id"], "question": q["question"], "answerable": q["answerable"]}
         # one search without threshold; the threshold is applied here (same result as retrieve())
-        all_hits = retrieve(q["question"], k=args.k, min_score=0.0)
+        extra = expand_queries(q["question"], detect_language(q["question"]), model) if use_translation else []
+        all_hits = retrieve(q["question"], k=args.k, min_score=0.0, extra_queries=extra)
         hits = [h for h in all_hits if h["score"] >= args.min_score]
+        row["gate"] = "skipped"
+        if hits and use_gate and hits[0]["score"] < GATE_BELOW:     # same rule as generate.py
+            row["gate"] = "passed" if in_scope(q["question"], extra, model, os.environ.get(
+                "OLLAMA_URL", "http://localhost:11434")) else "blocked"
+            if row["gate"] == "blocked":
+                hits = []
+        row["english_query"] = extra[0] if extra else ""
         row["n_hits"] = len(hits)
         row["top"] = [f"{h['source_file']} p.{h['page']} ({h['score']:.3f})" for h in all_hits]
         row["top_score"] = round(all_hits[0]["score"], 3) if all_hits else None
@@ -213,7 +231,7 @@ def main() -> None:
         print("  (with few questions this is only an indication: add more questions)")
 
     summary = {"questions": len(questions), "k": args.k, "min_score": args.min_score,
-               "boost": os.environ.get("RAG_BOOST", "1") != "0"}
+               "boost": os.environ.get("RAG_BOOST", "1") != "0", "translation": use_translation, "gate": use_gate}
     if args.generate:
         done = [r for r in rows if r["answerable"]]
         print("\n" + "=" * 60 + f"\nGENERATION (model {model})")
